@@ -24,11 +24,12 @@ blah blah
 A file containing list of timed projects will looks like this:
 ```
 PI,Project,Start Date,End Date,Reason
-alice@example.com,project foo,2023-09,2024-09,Internal
-bo@example.com,project bar,2023-09,2024-09,Internal
+alice@example.com,project foo,2023-09,2024-08,Internal
+bo@example.com,project bar,2023-09,2024-08,Internal
 ```
 
-Note that a date `2023-09` will be read as `2023-09-01 00:00:00`. So, if a project end date is specified as `2023-09` but the script is executed on `2023-09-02`, the project will no longer be excluded (assuming we met the start date condition).
+The script will gather the invoice month from the csv report and if it falls under the start and end date then those projects will be excluded.
+In this example, `project foo` will not be billed for September 2023 and August 2024 and all the months in between for total of 1 year.
 
 The CSV report must have the headers `Manager (PI)'` and `Project - Allocation'`.
 

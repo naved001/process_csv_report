@@ -1,9 +1,7 @@
 import argparse
 
-import csv
 import pandas
 
-from datetime import datetime
 
 def main():
     """Remove non-billable PIs and projects"""
@@ -38,31 +36,44 @@ def main():
     with open(args.projects_file) as file:
         projects = [line.rstrip() for line in file]
 
-    timed_projects_list = timed_projects(args.timed_projects_file)
+    invoice_date = get_invoice_date(args.report_file)
+    print("Invoice date: " + str(invoice_date))
+
+    timed_projects_list = timed_projects(args.timed_projects_file, invoice_date)
+    print("The following timed-projects will not be billed for this period: ")
+    print(timed_projects_list)
 
     projects = list(set(projects + timed_projects_list))
 
     remove_non_billables(args.report_file, pi, projects)
 
 
-def timed_projects(timed_projects_file):
+def get_invoice_date(report_file):
+    """Returns the invoice date as a pandas timestamp object
+
+    Note that it only checks the first entry because it should
+    be the same for every row.
+    """
+    dataframe = pandas.read_csv(report_file)
+    invoice_date_str = dataframe['Invoice Month'][0]
+    invoice_date = pandas.to_datetime(invoice_date_str, format='%Y-%m')
+    return invoice_date
+
+
+def timed_projects(timed_projects_file, invoice_date):
     """Returns list of projects that should be excluded based on dates"""
-    timed_projects_list = []
     dataframe = pandas.read_csv(timed_projects_file)
 
-    # convert to datetime objects
+    # convert to pandas timestamp objects
     dataframe['Start Date'] = pandas.to_datetime(dataframe['Start Date'], format="%Y-%m")
     dataframe['End Date'] = pandas.to_datetime(dataframe['End Date'], format="%Y-%m")
 
-    current_date = datetime.now()
-    for index, row in dataframe.iterrows():
-        if row['Start Date'] <= current_date <= row['End Date']:
-            timed_projects_list.append(row['Project'])
-
-    return timed_projects_list
+    mask = (dataframe['Start Date'] <= invoice_date) & (invoice_date <= dataframe['End Date'])
+    return dataframe[mask]['Project'].to_list()
 
 
 def remove_non_billables(report_file, pi, projects):
+    """Removes projects and PIs that should not be billed from the CSV report_file"""
     dataframe = pandas.read_csv(report_file)
     filtered_dataframe = dataframe[~dataframe['Manager (PI)'].isin(pi) & ~dataframe['Project - Allocation'].isin(projects)]
     filtered_dataframe.to_csv('filtered_' + report_file, index=False)
