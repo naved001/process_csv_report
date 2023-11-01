@@ -63,9 +63,11 @@ class TestRemoveNonBillables(TestCase):
         self.projects_to_exclude = ['ProjectB', 'ProjectC']
 
         self.output_file = tempfile.NamedTemporaryFile(delete=False)
+        self.output_file2 = tempfile.NamedTemporaryFile(delete=False)
 
     def tearDown(self):
         os.remove(self.output_file.name)
+        os.remove(self.output_file2.name)
 
     def test_remove_non_billables(self):
         process_report.remove_non_billables(self.dataframe, self.pi_to_exclude, self.projects_to_exclude, self.output_file.name)
@@ -76,6 +78,21 @@ class TestRemoveNonBillables(TestCase):
         self.assertNotIn('PI3', result_df['Manager (PI)'].tolist())
         self.assertNotIn('ProjectB', result_df['Project - Allocation'].tolist())
         self.assertNotIn('ProjectC', result_df['Project - Allocation'].tolist())
+
+    def test_remove_billables(self):
+        process_report.remove_billables(self.dataframe, self.pi_to_exclude, self.projects_to_exclude, self.output_file2.name)
+
+        result_df = pandas.read_csv(self.output_file2.name)
+
+        self.assertIn('PI2', result_df['Manager (PI)'].tolist())
+        self.assertIn('PI3', result_df['Manager (PI)'].tolist())
+        self.assertIn('ProjectB', result_df['Project - Allocation'].tolist())
+        self.assertIn('ProjectC', result_df['Project - Allocation'].tolist())
+
+        self.assertNotIn('PI1', result_df['Manager (PI)'].tolist())
+        self.assertNotIn('PI4', result_df['Manager (PI)'].tolist())
+        self.assertNotIn('ProjectA', result_df['Project - Allocation'].tolist())
+        self.assertNotIn('ProjectD', result_df['Project - Allocation'].tolist())
 
 
 class TestMergeCSV(TestCase):

@@ -54,6 +54,7 @@ def main():
     projects = list(set(projects + timed_projects_list))
 
     remove_non_billables(merged_dataframe, pi, projects, args.output_file)
+    remove_billables(merged_dataframe, pi, projects, "non_billable.csv")
 
 
 def merge_csv(files):
@@ -94,6 +95,15 @@ def timed_projects(timed_projects_file, invoice_date):
 def remove_non_billables(dataframe, pi, projects, output_file):
     """Removes projects and PIs that should not be billed from the dataframe"""
     filtered_dataframe = dataframe[~dataframe['Manager (PI)'].isin(pi) & ~dataframe['Project - Allocation'].isin(projects)]
+    filtered_dataframe.to_csv(output_file, index=False)
+
+
+def remove_billables(dataframe, pi, projects, output_file):
+    """Removes projects and PIs that should be billed from the dataframe
+
+    So this *keeps* the projects/pis that should not be billed.
+    """
+    filtered_dataframe = dataframe[dataframe['Manager (PI)'].isin(pi) | dataframe['Project - Allocation'].isin(projects)]
     filtered_dataframe.to_csv(output_file, index=False)
 
 if __name__ == "__main__":
