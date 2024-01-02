@@ -1,5 +1,7 @@
 # Process CSV reports
 
+## Non-Billable
+
 Automates the process of removing non-billable PIs and projects from the supplied csv report.
 
 A file containing list of PIs may look like:
@@ -41,3 +43,7 @@ process_report.py: error: the following arguments are required: csv_files, --pi-
 E.g. python process_report.py test1.csv test2.csv --pi-file pi.txt --projects-file projects.txt --timed-projects-file timed_projects.txt --output-file myfile.csv
 ```
 
+## Combine CSVs
+
+This script also combines the 3 separate Invoice data CSVs into 1 Invoice CSV. It combines 
+OpenShift SU, OpenStack SU, and Storage SU data.
