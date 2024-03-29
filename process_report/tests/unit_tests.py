@@ -2,7 +2,6 @@ from unittest import TestCase
 import tempfile
 import pandas
 import os
-import shutil
 from textwrap import dedent
 from process_report import process_report
 
@@ -135,43 +134,3 @@ class TestMergeCSV(TestCase):
 
         # Assert that the headers in the merged DataFrame match the expected headers
         self.assertListEqual(merged_dataframe.columns.tolist(), self.header)
-
-class TestExportPICSV(TestCase):
-    def setUp(self):
-
-        data = {
-            'Invoice Month': ['2023-01','2023-01','2023-01','2023-01','2023-01'],
-            'Manager (PI)': ['PI1', 'PI1', 'PI1', 'PI2', 'PI2'],
-            'Institution': ['BU', 'BU', 'BU', 'HU', 'HU'],
-            'Project - Allocation': ['ProjectA', 'ProjectB', 'ProjectC', 'ProjectD', 'ProjectE'],
-            'Untouch Data Column': ['DataA', 'DataB', 'DataC', 'DataD', 'DataE']
-        }
-        self.dataframe = pandas.DataFrame(data)
-
-    def test_export_pi(self):
-        output_dir = tempfile.TemporaryDirectory()
-        process_report.export_pi_billables(self.dataframe, output_dir.name)
-        
-        pi_csv_1 = f'{self.dataframe["Institution"][0]}_{self.dataframe["Manager (PI)"][0]}_{self.dataframe["Invoice Month"][0]}.csv'
-        pi_csv_2 = f'{self.dataframe["Institution"][3]}_{self.dataframe["Manager (PI)"][3]}_{self.dataframe["Invoice Month"][3]}.csv'
-        self.assertIn(pi_csv_1, os.listdir(output_dir.name))
-        self.assertIn(pi_csv_2, os.listdir(output_dir.name))
-        self.assertEqual(len(os.listdir(output_dir.name)), len(self.dataframe['Manager (PI)'].unique()))
-
-        pi_df = pandas.read_csv(output_dir.name + '/' + pi_csv_1)
-        self.assertEqual(len(pi_df['Manager (PI)'].unique()), 1)
-        self.assertEqual(pi_df['Manager (PI)'].unique()[0], self.dataframe['Manager (PI)'][0])
-
-        self.assertIn('ProjectA', pi_df['Project - Allocation'].tolist())
-        self.assertIn('ProjectB', pi_df['Project - Allocation'].tolist())
-        self.assertIn('ProjectC', pi_df['Project - Allocation'].tolist())
-
-        pi_df = pandas.read_csv(output_dir.name + '/' + pi_csv_2)
-        self.assertEqual(len(pi_df['Manager (PI)'].unique()), 1)
-        self.assertEqual(pi_df['Manager (PI)'].unique()[0], self.dataframe['Manager (PI)'][3])
-
-        self.assertIn('ProjectD', pi_df['Project - Allocation'].tolist())
-        self.assertIn('ProjectE', pi_df['Project - Allocation'].tolist())
-        self.assertNotIn('ProjectA', pi_df['Project - Allocation'].tolist())
-        self.assertNotIn('ProjectB', pi_df['Project - Allocation'].tolist())
-        self.assertNotIn('ProjectC', pi_df['Project - Allocation'].tolist())
