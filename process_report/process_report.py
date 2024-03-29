@@ -1,4 +1,5 @@
 import argparse
+import os
 
 import pandas
 
@@ -34,6 +35,12 @@ def main():
         default="filtered_output.csv",
         help="Name of output file",
     )
+    parser.add_argument(
+        "--output-folder",
+        required=False,
+        default="pi_invoices",
+        help="Name of output folder containing pi-specific invoice csvs"
+    )
     args = parser.parse_args()
     merged_dataframe = merge_csv(args.csv_files)
 
@@ -53,8 +60,9 @@ def main():
 
     projects = list(set(projects + timed_projects_list))
 
-    remove_non_billables(merged_dataframe, pi, projects, args.output_file)
+    billable_projects = remove_non_billables(merged_dataframe, pi, projects, args.output_file)
     remove_billables(merged_dataframe, pi, projects, "non_billable.csv")
+    export_pi_billables(billable_projects, args.output_folder)
 
 
 def merge_csv(files):
@@ -96,6 +104,7 @@ def remove_non_billables(dataframe, pi, projects, output_file):
     """Removes projects and PIs that should not be billed from the dataframe"""
     filtered_dataframe = dataframe[~dataframe['Manager (PI)'].isin(pi) & ~dataframe['Project - Allocation'].isin(projects)]
     filtered_dataframe.to_csv(output_file, index=False)
+    return filtered_dataframe
 
 
 def remove_billables(dataframe, pi, projects, output_file):
@@ -105,6 +114,19 @@ def remove_billables(dataframe, pi, projects, output_file):
     """
     filtered_dataframe = dataframe[dataframe['Manager (PI)'].isin(pi) | dataframe['Project - Allocation'].isin(projects)]
     filtered_dataframe.to_csv(output_file, index=False)
+
+def export_pi_billables(dataframe: pandas.DataFrame, output_folder):
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
+
+    invoice_month = dataframe['Invoice Month'][0]
+    pi_list = dataframe['Manager (PI)'].unique()
+
+    for pi in pi_list:
+        pi_projects = dataframe[dataframe['Manager (PI)'] == pi]
+        pi_instituition = pi_projects['Institution'].unique()[0]
+        pi_projects.to_csv(output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv")
+
 
 if __name__ == "__main__":
     main()
