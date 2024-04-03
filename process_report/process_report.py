@@ -119,12 +119,12 @@ def export_pi_billables(dataframe: pandas.DataFrame, output_folder):
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
-    invoice_month = dataframe['Invoice Month'][0]
+    invoice_month = dataframe['Invoice Month'].iat[0]
     pi_list = dataframe['Manager (PI)'].unique()
 
     for pi in pi_list:
         pi_projects = dataframe[dataframe['Manager (PI)'] == pi]
-        pi_instituition = pi_projects['Institution'].unique()[0]
+        pi_instituition = pi_projects['Institution'].iat[0]
         pi_projects.to_csv(output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv")
         
 
