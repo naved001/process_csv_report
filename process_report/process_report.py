@@ -145,6 +145,7 @@ def main():
     export_pi_billables(billable_projects, args.output_folder)
     export_HU_only(billable_projects, args.HU_invoice_file)
     export_HU_BU(billable_projects, args.HU_BU_invoice_file)
+    export_lenovo(billable_projects)
 
 
 def merge_csv(files):
@@ -293,6 +294,26 @@ def export_HU_BU(dataframe, output_file):
     HU_BU_projects = dataframe[(dataframe[INSTITUTION_FIELD] == 'Harvard University') | 
                                (dataframe[INSTITUTION_FIELD] == 'Boston University')]
     HU_BU_projects.to_csv(output_file)        
+
+
+def export_lenovo(dataframe: pandas.DataFrame, output_file=None):
+
+    lenovo_file_name = output_file or f'Lenovo_{dataframe[INVOICE_DATE_FIELD].iat[0]}.csv'
+
+    LENOVO_SU_TYPES = ['OpenShift GPUA100SXM4', 'OpenStack GPUA100SXM4']
+    SU_CHARGE_MULTIPLIER = 1
+
+    lenovo_df = dataframe[dataframe[SU_TYPE_FIELD].isin(LENOVO_SU_TYPES)][[
+            INVOICE_DATE_FIELD, 
+            PROJECT_FIELD, 
+            INSTITUTION_FIELD, 
+            SU_HOURS_FIELD, 
+            SU_TYPE_FIELD]]
+    
+    lenovo_df.rename(columns={SU_HOURS_FIELD: 'SU Hours'}, inplace=True)
+    lenovo_df.insert(len(lenovo_df.columns), 'SU Charge', SU_CHARGE_MULTIPLIER)
+    lenovo_df['Charge'] = lenovo_df['SU Hours'] * lenovo_df['SU Charge']
+    lenovo_df.to_csv(lenovo_file_name)
 
 
 if __name__ == "__main__":
