@@ -1,7 +1,65 @@
 import argparse
 import os
+import sys
 
+import json
 import pandas
+
+
+### Invoice field names
+INVOICE_DATE_FIELD = 'Invoice Month'
+PROJECT_FIELD = 'Project - Allocation'
+PROJECT_ID_FIELD = 'Project - Allocation ID'
+PI_FIELD = 'Manager (PI)'
+INVOICE_EMAIL_FIELD = 'Invoice Email'
+INVOICE_ADDRESS_FIELD = 'Invoice Address'
+INSTITUTION_FIELD = 'Institution'
+INSTITUTION_ID_FIELD = 'Institution - Specific Code'
+SU_HOURS_FIELD = 'SU Hours (GBhr or SUhr)'
+SU_TYPE_FIELD = 'SU Type'
+COST_FIELD = 'Cost'
+CREDIT_FIELD = 'Credit'
+CREDIT_CODE_FIELD = 'Credit Code'
+BALANCE_FIELD = 'Balance'
+###
+
+
+def get_institution_from_pi(institute_map, pi_uname):
+    institution_key = pi_uname.split('@')[-1]
+    institution_name = institute_map.get(institution_key, '')
+
+    if institution_name == '':
+        print(f"Warning: PI name {pi_uname} does not match any institution!")
+    
+    return institution_name
+
+
+def load_institute_map() -> dict:
+    with open('institute_map.json', 'r') as f:
+        institute_map = json.load(f)
+
+    return institute_map
+
+
+def load_old_pis(old_pi_file):
+    old_pi_dict = dict()
+
+    try:
+        with open(old_pi_file) as f:
+            for pi_info in f: 
+                pi, first_month = pi_info.strip().split(',')
+                old_pi_dict[pi] = first_month
+    except FileNotFoundError:
+        print('Applying credit 0002 failed. Old PI file does not exist')
+        sys.exit(1)
+    
+    return old_pi_dict
+
+
+def is_old_pi(old_pi_dict, pi, invoice_month):
+    if pi in old_pi_dict and old_pi_dict[pi] != invoice_month: 
+        return True
+    return False
 
 
 def main():
@@ -41,6 +99,23 @@ def main():
         default="pi_invoices",
         help="Name of output folder containing pi-specific invoice csvs"
     )
+    parser.add_argument(
+        "--HU-invoice-file",
+        required=False,
+        default="HU_only.csv",
+        help="Name of output csv for HU invoices"
+    )
+    parser.add_argument(
+        "--HU-BU-invoice-file",
+        required=False,
+        default="HU_BU.csv",
+        help="Name of output csv for HU and BU invoices"
+    )
+    parser.add_argument(
+        "--old-pi-file",
+        required=False,
+        help="Name of csv file listing previously billed PIs"
+    )
     args = parser.parse_args()
     merged_dataframe = merge_csv(args.csv_files)
 
@@ -60,9 +135,16 @@ def main():
 
     projects = list(set(projects + timed_projects_list))
 
-    billable_projects = remove_non_billables(merged_dataframe, pi, projects, args.output_file)
+    merged_dataframe = add_institution(merged_dataframe)
     remove_billables(merged_dataframe, pi, projects, "non_billable.csv")
+
+    billable_projects = remove_non_billables(merged_dataframe, pi, projects)
+    billable_projects = validate_pi_names(billable_projects)
+    credited_projects = apply_credits_new_pi(billable_projects, args.old_pi_file)
+    export_billables(credited_projects, args.output_file)
     export_pi_billables(billable_projects, args.output_folder)
+    export_HU_only(billable_projects, args.HU_invoice_file)
+    export_HU_BU(billable_projects, args.HU_BU_invoice_file)
 
 
 def merge_csv(files):
@@ -83,7 +165,7 @@ def get_invoice_date(dataframe):
     Note that it only checks the first entry because it should
     be the same for every row.
     """
-    invoice_date_str = dataframe['Invoice Month'][0]
+    invoice_date_str = dataframe[INVOICE_DATE_FIELD][0]
     invoice_date = pandas.to_datetime(invoice_date_str, format='%Y-%m')
     return invoice_date
 
@@ -100,10 +182,9 @@ def timed_projects(timed_projects_file, invoice_date):
     return dataframe[mask]['Project'].to_list()
 
 
-def remove_non_billables(dataframe, pi, projects, output_file):
+def remove_non_billables(dataframe, pi, projects):
     """Removes projects and PIs that should not be billed from the dataframe"""
-    filtered_dataframe = dataframe[~dataframe['Manager (PI)'].isin(pi) & ~dataframe['Project - Allocation'].isin(projects)]
-    filtered_dataframe.to_csv(output_file, index=False)
+    filtered_dataframe = dataframe[~dataframe[PI_FIELD].isin(pi) & ~dataframe[PROJECT_FIELD].isin(projects)]
     return filtered_dataframe
 
 
@@ -112,21 +193,107 @@ def remove_billables(dataframe, pi, projects, output_file):
 
     So this *keeps* the projects/pis that should not be billed.
     """
-    filtered_dataframe = dataframe[dataframe['Manager (PI)'].isin(pi) | dataframe['Project - Allocation'].isin(projects)]
+    filtered_dataframe = dataframe[dataframe[PI_FIELD].isin(pi) | dataframe[PROJECT_FIELD].isin(projects)]
     filtered_dataframe.to_csv(output_file, index=False)
+
+
+def validate_pi_names(dataframe):
+    invalid_pi_projects = dataframe[pandas.isna(dataframe[PI_FIELD])]
+    for i, row in invalid_pi_projects.iterrows():
+        print(f'Warning: Project {row[PROJECT_FIELD]} has empty PI field')
+    dataframe = dataframe[~pandas.isna(dataframe[PI_FIELD])]
+
+    return dataframe
+
+
+def export_billables(dataframe, output_file):
+    dataframe.to_csv(output_file, index=False)
+
 
 def export_pi_billables(dataframe: pandas.DataFrame, output_folder):
     if not os.path.exists(output_folder):
         os.mkdir(output_folder)
 
-    invoice_month = dataframe['Invoice Month'].iat[0]
-    pi_list = dataframe['Manager (PI)'].unique()
+    invoice_month = dataframe[INVOICE_DATE_FIELD].iat[0]
+    pi_list = dataframe[PI_FIELD].unique()
 
     for pi in pi_list:
-        pi_projects = dataframe[dataframe['Manager (PI)'] == pi]
-        pi_instituition = pi_projects['Institution'].iat[0]
+        if pandas.isna(pi): 
+            continue
+        pi_projects = dataframe[dataframe[PI_FIELD] == pi]
+        pi_instituition = pi_projects[INSTITUTION_FIELD].iat[0]
         pi_projects.to_csv(output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv")
-        
+
+
+def apply_credits_new_pi(dataframe, old_pi_file):
+    new_pi_credit_code = "0002"
+    new_pi_credit_amount = 1000
+
+    dataframe[CREDIT_FIELD] = None
+    dataframe[CREDIT_CODE_FIELD] = None
+    dataframe[BALANCE_FIELD] = 0
+
+    old_pi_dict = load_old_pis(old_pi_file)
+
+    current_pi_list = dataframe[PI_FIELD].unique()
+    invoice_month = dataframe[INVOICE_DATE_FIELD].iat[0]
+
+    for pi in current_pi_list:
+        pi_projects = dataframe[dataframe[PI_FIELD] == pi]
+
+        if is_old_pi(old_pi_dict, pi, invoice_month):
+            for i, row in pi_projects.iterrows():
+                dataframe.at[i, BALANCE_FIELD] = row[COST_FIELD]
+        else:
+            remaining_credit = new_pi_credit_amount
+            for i, row in pi_projects.iterrows():
+                project_cost = row[COST_FIELD]
+                applied_credit = min(project_cost, remaining_credit)
+
+                dataframe.at[i, CREDIT_FIELD] =  applied_credit
+                dataframe.at[i, CREDIT_CODE_FIELD] = new_pi_credit_code
+                dataframe.at[i, BALANCE_FIELD] = row[COST_FIELD] - applied_credit
+                remaining_credit -= applied_credit
+
+                if remaining_credit == 0:
+                    break
+    
+    return dataframe
+
+
+def add_institution(dataframe: pandas.DataFrame):
+    """Determine every PI's institution name, logging any PI whose institution cannot be determined
+    This is performed by `get_institution_from_pi()`, which tries to match the PI's username to 
+    a list of known institution email domains (i.e bu.edu), or to several edge cases (i.e rudolph) if
+    the username is not an email address.
+    
+    Exact matches are then mapped to the corresponding institution name. 
+
+    I.e "foo@bu.edu" would match with "bu.edu", which maps to the instition name "Boston University"
+
+    The list of mappings are defined in `institute_map.json`.
+    """
+    institute_map = load_institute_map()
+    for i, row in dataframe.iterrows():
+        pi_name = row[PI_FIELD]
+        if pandas.isna(pi_name): 
+            print(f"Project {row[PROJECT_FIELD]} has no PI")
+        else: 
+            dataframe.at[i, INSTITUTION_FIELD] = get_institution_from_pi(institute_map, pi_name)
+
+    return dataframe
+
+
+def export_HU_only(dataframe, output_file):
+    HU_projects = dataframe[dataframe[INSTITUTION_FIELD] == 'Harvard University']
+    HU_projects.to_csv(output_file)
+
+
+def export_HU_BU(dataframe, output_file):
+    HU_BU_projects = dataframe[(dataframe[INSTITUTION_FIELD] == 'Harvard University') | 
+                               (dataframe[INSTITUTION_FIELD] == 'Boston University')]
+    HU_BU_projects.to_csv(output_file)        
+
 
 if __name__ == "__main__":
     main()

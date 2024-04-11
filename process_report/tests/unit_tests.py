@@ -1,8 +1,11 @@
 from unittest import TestCase
+from unittest import skipIf
 import tempfile
 import pandas
 import os
+import math
 from textwrap import dedent
+
 from process_report import process_report
 
 class TestGetInvoiceDate(TestCase):
@@ -70,7 +73,8 @@ class TestRemoveNonBillables(TestCase):
         os.remove(self.output_file2.name)
 
     def test_remove_non_billables(self):
-        process_report.remove_non_billables(self.dataframe, self.pi_to_exclude, self.projects_to_exclude, self.output_file.name)
+        billables_df = process_report.remove_non_billables(self.dataframe, self.pi_to_exclude, self.projects_to_exclude)
+        process_report.export_billables(billables_df, self.output_file.name)
 
         result_df = pandas.read_csv(self.output_file.name)
 
@@ -175,3 +179,98 @@ class TestExportPICSV(TestCase):
         self.assertNotIn('ProjectA', pi_df['Project - Allocation'].tolist())
         self.assertNotIn('ProjectB', pi_df['Project - Allocation'].tolist())
         self.assertNotIn('ProjectC', pi_df['Project - Allocation'].tolist())
+
+
+class TestGetInstitute(TestCase):
+    def test_get_pi_institution(self):
+
+        institute_map = {
+            "harvard.edu"           : "Harvard University",
+            "bu.edu"                : "Boston University",
+            "bentley.edu"           : "Bentley",
+            "mclean.harvard.edu"    : "McLean Hospital",
+            "meei.harvard.edu"      : "Massachusetts Eye & Ear",
+            "dfci.harvard.edu"      : "Dana-Farber Cancer Institute",
+            "northeastern.edu"      : "Northeastern University",
+        }
+        
+        self.assertEqual(
+            process_report.get_institution_from_pi(institute_map, "quanmp@bu.edu"), "Boston University"
+        )
+        self.assertEqual(
+            process_report.get_institution_from_pi(institute_map, "c@mclean.harvard.edu"), "McLean Hospital"
+        )
+        self.assertEqual(
+            process_report.get_institution_from_pi(institute_map, "b@harvard.edu"), "Harvard University"
+        )
+        self.assertEqual(
+            process_report.get_institution_from_pi(institute_map, "fake"), ""
+        )
+        self.assertEqual(
+            process_report.get_institution_from_pi(institute_map, "pi@northeastern.edu"), "Northeastern University"
+        )
+
+
+class TestCredit0002(TestCase):
+    def setUp(self):
+
+        data = {
+            'Invoice Month': ['2024-03','2024-03','2024-03','2024-03','2024-03','2024-03'],
+            'Manager (PI)': ['PI1', 'PI1', 'PI2', 'PI3', 'PI4', 'PI4'],
+            'Project - Allocation': ['ProjectA', 'ProjectB', 'ProjectC', 'ProjectD', 'ProjectE', 'ProjectF'],
+            'Cost': [10, 100, 10000, 5000, 800, 1000]
+        }
+        self.dataframe = pandas.DataFrame(data)
+        old_pi = ['PI2,2023-09', 'PI3,2024-02', 'PI4,2024-03'] # Case with old and new pi in pi file
+        old_pi_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.csv')
+        for pi in old_pi: 
+            old_pi_file.write(pi + "\n")
+        self.old_pi_file = old_pi_file.name
+
+    def tearDown(self):
+        os.remove(self.old_pi_file)
+
+    def test_apply_credit_0002(self):
+        dataframe = process_report.apply_credits_new_pi(self.dataframe, self.old_pi_file)
+
+        self.assertTrue('Credit' in dataframe)
+        self.assertTrue('Credit Code' in dataframe)
+        self.assertTrue('Balance' in dataframe)
+
+        non_credited_project = dataframe[pandas.isna(dataframe['Credit Code'])]
+        credited_projects = dataframe[dataframe['Credit Code'] == '0002']
+
+        self.assertEqual(2, len(non_credited_project))
+        self.assertEqual(non_credited_project.loc[2, 'Cost'], non_credited_project.loc[2, 'Balance'])
+        self.assertEqual(non_credited_project.loc[3, 'Cost'], non_credited_project.loc[3, 'Balance'])
+
+
+        self.assertEqual(4, len(credited_projects.index))
+        self.assertTrue('PI2' not in credited_projects['Manager (PI)'].unique())
+        self.assertTrue('PI3' not in credited_projects['Manager (PI)'].unique())
+
+        self.assertEqual(10, credited_projects.loc[0, 'Credit'])
+        self.assertEqual(100, credited_projects.loc[1, 'Credit'])
+        self.assertEqual(800, credited_projects.loc[4, 'Credit'])
+        self.assertEqual(200, credited_projects.loc[5, 'Credit'])
+
+        self.assertEqual(0, credited_projects.loc[0, 'Balance'])
+        self.assertEqual(0, credited_projects.loc[1, 'Balance'])
+        self.assertEqual(0, credited_projects.loc[4, 'Balance'])
+        self.assertEqual(800, credited_projects.loc[5, 'Balance'])
+
+
+class TestValidateBillables(TestCase):
+
+    def setUp(self):
+
+        data = {
+            'Manager (PI)': ['PI1', math.nan, 'PI1', 'PI2', 'PI2'],
+            'Project - Allocation': ['ProjectA', 'ProjectB', 'ProjectC', 'ProjectD', 'ProjectE'],
+        }
+        self.dataframe = pandas.DataFrame(data)
+
+    def test_validate_billables(self):
+        self.assertEqual(1, len(self.dataframe[pandas.isna(self.dataframe['Manager (PI)'])]))
+        validated_df = process_report.validate_pi_names(self.dataframe)
+        self.assertEqual(0, len(validated_df[pandas.isna(validated_df['Manager (PI)'])]))
