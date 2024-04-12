@@ -274,3 +274,41 @@ class TestValidateBillables(TestCase):
         self.assertEqual(1, len(self.dataframe[pandas.isna(self.dataframe['Manager (PI)'])]))
         validated_df = process_report.validate_pi_names(self.dataframe)
         self.assertEqual(0, len(validated_df[pandas.isna(validated_df['Manager (PI)'])]))
+
+
+class TestExportLenovo(TestCase):
+    def setUp(self):
+
+        data = {
+            'Invoice Month': ['2023-01','2023-01','2023-01','2023-01','2023-01', '2023-01'],
+            'Project - Allocation': ['ProjectA', 'ProjectB', 'ProjectC', 'ProjectD', 'ProjectE', 'ProjectF'],
+            'Institution': ['A', 'B', 'C', 'D', 'E', 'F'],
+            'SU Hours (GBhr or SUhr)': [1, 10, 100, 4, 432, 10],
+            'SU Type': ['OpenShift GPUA100SXM4', 'OpenShift GPUA100', 'OpenShift GPUA100SXM4', 'OpenStack GPUA100SXM4', 'OpenStack CPU', 'OpenStack GPUK80']
+        }
+        self.dataframe = pandas.DataFrame(data)
+
+        output_file = tempfile.NamedTemporaryFile(delete=False, mode='w', suffix='.csv')
+        self.output_file = output_file.name
+
+    def tearDown(self):
+        os.remove(self.output_file)
+
+
+    def test_apply_credit_0002(self):
+        process_report.export_lenovo(self.dataframe, self.output_file)
+        output_df = pandas.read_csv(self.output_file)
+
+        self.assertTrue(set([
+            process_report.INVOICE_DATE_FIELD, 
+            process_report.PROJECT_FIELD, 
+            process_report.INSTITUTION_FIELD, 
+            process_report.SU_TYPE_FIELD,
+            'SU Hours', 
+            'SU Charge',
+            'Charge',
+        ]).issubset(output_df))
+        
+        for i, row in output_df.iterrows():
+            self.assertIn(row[process_report.SU_TYPE_FIELD], ['OpenShift GPUA100SXM4', 'OpenStack GPUA100SXM4'])
+            self.assertEqual(row['Charge'], row['SU Charge'] * row['SU Hours'])
