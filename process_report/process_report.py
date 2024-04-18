@@ -7,35 +7,35 @@ import pandas
 
 
 ### Invoice field names
-INVOICE_DATE_FIELD = 'Invoice Month'
-PROJECT_FIELD = 'Project - Allocation'
-PROJECT_ID_FIELD = 'Project - Allocation ID'
-PI_FIELD = 'Manager (PI)'
-INVOICE_EMAIL_FIELD = 'Invoice Email'
-INVOICE_ADDRESS_FIELD = 'Invoice Address'
-INSTITUTION_FIELD = 'Institution'
-INSTITUTION_ID_FIELD = 'Institution - Specific Code'
-SU_HOURS_FIELD = 'SU Hours (GBhr or SUhr)'
-SU_TYPE_FIELD = 'SU Type'
-COST_FIELD = 'Cost'
-CREDIT_FIELD = 'Credit'
-CREDIT_CODE_FIELD = 'Credit Code'
-BALANCE_FIELD = 'Balance'
+INVOICE_DATE_FIELD = "Invoice Month"
+PROJECT_FIELD = "Project - Allocation"
+PROJECT_ID_FIELD = "Project - Allocation ID"
+PI_FIELD = "Manager (PI)"
+INVOICE_EMAIL_FIELD = "Invoice Email"
+INVOICE_ADDRESS_FIELD = "Invoice Address"
+INSTITUTION_FIELD = "Institution"
+INSTITUTION_ID_FIELD = "Institution - Specific Code"
+SU_HOURS_FIELD = "SU Hours (GBhr or SUhr)"
+SU_TYPE_FIELD = "SU Type"
+COST_FIELD = "Cost"
+CREDIT_FIELD = "Credit"
+CREDIT_CODE_FIELD = "Credit Code"
+BALANCE_FIELD = "Balance"
 ###
 
 
 def get_institution_from_pi(institute_map, pi_uname):
-    institution_key = pi_uname.split('@')[-1]
-    institution_name = institute_map.get(institution_key, '')
+    institution_key = pi_uname.split("@")[-1]
+    institution_name = institute_map.get(institution_key, "")
 
-    if institution_name == '':
+    if institution_name == "":
         print(f"Warning: PI name {pi_uname} does not match any institution!")
-    
+
     return institution_name
 
 
 def load_institute_map() -> dict:
-    with open('institute_map.json', 'r') as f:
+    with open("institute_map.json", "r") as f:
         institute_map = json.load(f)
 
     return institute_map
@@ -46,18 +46,18 @@ def load_old_pis(old_pi_file):
 
     try:
         with open(old_pi_file) as f:
-            for pi_info in f: 
-                pi, first_month = pi_info.strip().split(',')
+            for pi_info in f:
+                pi, first_month = pi_info.strip().split(",")
                 old_pi_dict[pi] = first_month
     except FileNotFoundError:
-        print('Applying credit 0002 failed. Old PI file does not exist')
+        print("Applying credit 0002 failed. Old PI file does not exist")
         sys.exit(1)
-    
+
     return old_pi_dict
 
 
 def is_old_pi(old_pi_dict, pi, invoice_month):
-    if pi in old_pi_dict and old_pi_dict[pi] != invoice_month: 
+    if pi in old_pi_dict and old_pi_dict[pi] != invoice_month:
         return True
     return False
 
@@ -97,24 +97,24 @@ def main():
         "--output-folder",
         required=False,
         default="pi_invoices",
-        help="Name of output folder containing pi-specific invoice csvs"
+        help="Name of output folder containing pi-specific invoice csvs",
     )
     parser.add_argument(
         "--HU-invoice-file",
         required=False,
         default="HU_only.csv",
-        help="Name of output csv for HU invoices"
+        help="Name of output csv for HU invoices",
     )
     parser.add_argument(
         "--HU-BU-invoice-file",
         required=False,
         default="HU_BU.csv",
-        help="Name of output csv for HU and BU invoices"
+        help="Name of output csv for HU and BU invoices",
     )
     parser.add_argument(
         "--old-pi-file",
         required=False,
-        help="Name of csv file listing previously billed PIs"
+        help="Name of csv file listing previously billed PIs",
     )
     args = parser.parse_args()
     merged_dataframe = merge_csv(args.csv_files)
@@ -167,7 +167,7 @@ def get_invoice_date(dataframe):
     be the same for every row.
     """
     invoice_date_str = dataframe[INVOICE_DATE_FIELD][0]
-    invoice_date = pandas.to_datetime(invoice_date_str, format='%Y-%m')
+    invoice_date = pandas.to_datetime(invoice_date_str, format="%Y-%m")
     return invoice_date
 
 
@@ -176,16 +176,22 @@ def timed_projects(timed_projects_file, invoice_date):
     dataframe = pandas.read_csv(timed_projects_file)
 
     # convert to pandas timestamp objects
-    dataframe['Start Date'] = pandas.to_datetime(dataframe['Start Date'], format="%Y-%m")
-    dataframe['End Date'] = pandas.to_datetime(dataframe['End Date'], format="%Y-%m")
+    dataframe["Start Date"] = pandas.to_datetime(
+        dataframe["Start Date"], format="%Y-%m"
+    )
+    dataframe["End Date"] = pandas.to_datetime(dataframe["End Date"], format="%Y-%m")
 
-    mask = (dataframe['Start Date'] <= invoice_date) & (invoice_date <= dataframe['End Date'])
-    return dataframe[mask]['Project'].to_list()
+    mask = (dataframe["Start Date"] <= invoice_date) & (
+        invoice_date <= dataframe["End Date"]
+    )
+    return dataframe[mask]["Project"].to_list()
 
 
 def remove_non_billables(dataframe, pi, projects):
     """Removes projects and PIs that should not be billed from the dataframe"""
-    filtered_dataframe = dataframe[~dataframe[PI_FIELD].isin(pi) & ~dataframe[PROJECT_FIELD].isin(projects)]
+    filtered_dataframe = dataframe[
+        ~dataframe[PI_FIELD].isin(pi) & ~dataframe[PROJECT_FIELD].isin(projects)
+    ]
     return filtered_dataframe
 
 
@@ -194,14 +200,16 @@ def remove_billables(dataframe, pi, projects, output_file):
 
     So this *keeps* the projects/pis that should not be billed.
     """
-    filtered_dataframe = dataframe[dataframe[PI_FIELD].isin(pi) | dataframe[PROJECT_FIELD].isin(projects)]
+    filtered_dataframe = dataframe[
+        dataframe[PI_FIELD].isin(pi) | dataframe[PROJECT_FIELD].isin(projects)
+    ]
     filtered_dataframe.to_csv(output_file, index=False)
 
 
 def validate_pi_names(dataframe):
     invalid_pi_projects = dataframe[pandas.isna(dataframe[PI_FIELD])]
     for i, row in invalid_pi_projects.iterrows():
-        print(f'Warning: Project {row[PROJECT_FIELD]} has empty PI field')
+        print(f"Warning: Project {row[PROJECT_FIELD]} has empty PI field")
     dataframe = dataframe[~pandas.isna(dataframe[PI_FIELD])]
 
     return dataframe
@@ -219,11 +227,13 @@ def export_pi_billables(dataframe: pandas.DataFrame, output_folder):
     pi_list = dataframe[PI_FIELD].unique()
 
     for pi in pi_list:
-        if pandas.isna(pi): 
+        if pandas.isna(pi):
             continue
         pi_projects = dataframe[dataframe[PI_FIELD] == pi]
         pi_instituition = pi_projects[INSTITUTION_FIELD].iat[0]
-        pi_projects.to_csv(output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv")
+        pi_projects.to_csv(
+            output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv"
+        )
 
 
 def apply_credits_new_pi(dataframe, old_pi_file):
@@ -251,24 +261,24 @@ def apply_credits_new_pi(dataframe, old_pi_file):
                 project_cost = row[COST_FIELD]
                 applied_credit = min(project_cost, remaining_credit)
 
-                dataframe.at[i, CREDIT_FIELD] =  applied_credit
+                dataframe.at[i, CREDIT_FIELD] = applied_credit
                 dataframe.at[i, CREDIT_CODE_FIELD] = new_pi_credit_code
                 dataframe.at[i, BALANCE_FIELD] = row[COST_FIELD] - applied_credit
                 remaining_credit -= applied_credit
 
                 if remaining_credit == 0:
                     break
-    
+
     return dataframe
 
 
 def add_institution(dataframe: pandas.DataFrame):
     """Determine every PI's institution name, logging any PI whose institution cannot be determined
-    This is performed by `get_institution_from_pi()`, which tries to match the PI's username to 
+    This is performed by `get_institution_from_pi()`, which tries to match the PI's username to
     a list of known institution email domains (i.e bu.edu), or to several edge cases (i.e rudolph) if
     the username is not an email address.
-    
-    Exact matches are then mapped to the corresponding institution name. 
+
+    Exact matches are then mapped to the corresponding institution name.
 
     I.e "foo@bu.edu" would match with "bu.edu", which maps to the instition name "Boston University"
 
@@ -277,42 +287,50 @@ def add_institution(dataframe: pandas.DataFrame):
     institute_map = load_institute_map()
     for i, row in dataframe.iterrows():
         pi_name = row[PI_FIELD]
-        if pandas.isna(pi_name): 
+        if pandas.isna(pi_name):
             print(f"Project {row[PROJECT_FIELD]} has no PI")
-        else: 
-            dataframe.at[i, INSTITUTION_FIELD] = get_institution_from_pi(institute_map, pi_name)
+        else:
+            dataframe.at[i, INSTITUTION_FIELD] = get_institution_from_pi(
+                institute_map, pi_name
+            )
 
     return dataframe
 
 
 def export_HU_only(dataframe, output_file):
-    HU_projects = dataframe[dataframe[INSTITUTION_FIELD] == 'Harvard University']
+    HU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Harvard University"]
     HU_projects.to_csv(output_file)
 
 
 def export_HU_BU(dataframe, output_file):
-    HU_BU_projects = dataframe[(dataframe[INSTITUTION_FIELD] == 'Harvard University') | 
-                               (dataframe[INSTITUTION_FIELD] == 'Boston University')]
-    HU_BU_projects.to_csv(output_file)        
+    HU_BU_projects = dataframe[
+        (dataframe[INSTITUTION_FIELD] == "Harvard University")
+        | (dataframe[INSTITUTION_FIELD] == "Boston University")
+    ]
+    HU_BU_projects.to_csv(output_file)
 
 
 def export_lenovo(dataframe: pandas.DataFrame, output_file=None):
+    lenovo_file_name = (
+        output_file or f"Lenovo_{dataframe[INVOICE_DATE_FIELD].iat[0]}.csv"
+    )
 
-    lenovo_file_name = output_file or f'Lenovo_{dataframe[INVOICE_DATE_FIELD].iat[0]}.csv'
-
-    LENOVO_SU_TYPES = ['OpenShift GPUA100SXM4', 'OpenStack GPUA100SXM4']
+    LENOVO_SU_TYPES = ["OpenShift GPUA100SXM4", "OpenStack GPUA100SXM4"]
     SU_CHARGE_MULTIPLIER = 1
 
-    lenovo_df = dataframe[dataframe[SU_TYPE_FIELD].isin(LENOVO_SU_TYPES)][[
-            INVOICE_DATE_FIELD, 
-            PROJECT_FIELD, 
-            INSTITUTION_FIELD, 
-            SU_HOURS_FIELD, 
-            SU_TYPE_FIELD]]
-    
-    lenovo_df.rename(columns={SU_HOURS_FIELD: 'SU Hours'}, inplace=True)
-    lenovo_df.insert(len(lenovo_df.columns), 'SU Charge', SU_CHARGE_MULTIPLIER)
-    lenovo_df['Charge'] = lenovo_df['SU Hours'] * lenovo_df['SU Charge']
+    lenovo_df = dataframe[dataframe[SU_TYPE_FIELD].isin(LENOVO_SU_TYPES)][
+        [
+            INVOICE_DATE_FIELD,
+            PROJECT_FIELD,
+            INSTITUTION_FIELD,
+            SU_HOURS_FIELD,
+            SU_TYPE_FIELD,
+        ]
+    ]
+
+    lenovo_df.rename(columns={SU_HOURS_FIELD: "SU Hours"}, inplace=True)
+    lenovo_df.insert(len(lenovo_df.columns), "SU Charge", SU_CHARGE_MULTIPLIER)
+    lenovo_df["Charge"] = lenovo_df["SU Hours"] * lenovo_df["SU Charge"]
     lenovo_df.to_csv(lenovo_file_name)
 
 
