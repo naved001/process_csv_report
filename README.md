@@ -69,5 +69,5 @@ In this example, `project foo` will not be billed for September 2023 and August 
 
 ## Combine CSVs
 
-This script also combines the 3 separate Invoice data CSVs into 1 Invoice CSV. It combines 
+This script also combines the 3 separate Invoice data CSVs into 1 Invoice CSV. It combines
 OpenShift SU, OpenStack SU, and Storage SU data.
