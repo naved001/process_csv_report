@@ -328,6 +328,16 @@ class TestCredit0002(TestCase):
         self.assertEqual(0, credited_projects.loc[4, "Balance"])
         self.assertEqual(800, credited_projects.loc[5, "Balance"])
 
+        updated_old_pi_answer = "PI2,2023-09\nPI3,2024-02\nPI4,2024-03\nPI1,2024-03\n"
+        with open(self.old_pi_file, "r") as f:
+            self.assertEqual(updated_old_pi_answer, f.read())
+
+    def test_apply_credit_error(self):
+        old_pi_dict = {"PI1": "2024-12"}
+        invoice_month = "2024-03"
+        with self.assertRaises(SystemExit):
+            process_report.is_old_pi(old_pi_dict, "PI1", invoice_month)
+
 
 class TestValidateBillables(TestCase):
     def setUp(self):
