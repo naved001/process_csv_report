@@ -1,9 +1,11 @@
 import argparse
 import os
 import sys
+import datetime
 
 import json
 import pandas
+import boto3
 
 
 ### Invoice field names
@@ -35,7 +37,7 @@ def get_institution_from_pi(institute_map, pi_uname):
 
 
 def load_institute_map() -> dict:
-    with open("institute_map.json", "r") as f:
+    with open("process_report/institute_map.json", "r") as f:
         institute_map = json.load(f)
 
     return institute_map
@@ -62,6 +64,25 @@ def is_old_pi(old_pi_dict, pi, invoice_month):
     return False
 
 
+def get_invoice_bucket():
+    try:
+        s3_resource = boto3.resource(
+            service_name="s3",
+            endpoint_url=os.environ.get(
+                "S3_ENDPOINT", "https://s3.us-east-005.backblazeb2.com"
+            ),
+            aws_access_key_id=os.environ["S3_KEY_ID"],
+            aws_secret_access_key=os.environ["S3_APP_KEY"],
+        )
+    except KeyError:
+        print("Error: Please set the environment variables S3_KEY_ID and S3_APP_KEY")
+    return s3_resource.Bucket(os.environ.get("S3_BUCKET_NAME", "nerc-invoicing"))
+
+
+def get_iso8601_time():
+    return datetime.datetime.now().strftime("%Y%m%dT%H%M%SZ")
+
+
 def main():
     """Remove non-billable PIs and projects"""
 
@@ -69,8 +90,23 @@ def main():
 
     parser.add_argument(
         "csv_files",
-        nargs="+",
+        nargs="*",
         help="One or more CSV files that need to be processed",
+    )
+    parser.add_argument(
+        "--fetch-from-s3",
+        action="store_true",
+        help="If set, fetches invoices from S3 storage. Requires environment variables for S3 authentication to be set",
+    )
+    parser.add_argument(
+        "--upload-to-s3",
+        action="store_true",
+        help="If set, uploads all processed invoices to S3",
+    )
+    parser.add_argument(
+        "--invoice-month",
+        required=True,
+        help="Invoice month to process",
     )
     parser.add_argument(
         "--pi-file",
@@ -86,6 +122,13 @@ def main():
         "--timed-projects-file",
         required=True,
         help="File containing list of projects that are non-billable within a specified duration",
+    )
+
+    parser.add_argument(
+        "--nonbillable-file",
+        required=False,
+        default="nonbillable.csv",
+        help="Name of nonbillable file",
     )
     parser.add_argument(
         "--output-file",
@@ -103,13 +146,19 @@ def main():
         "--HU-invoice-file",
         required=False,
         default="HU_only.csv",
-        help="Name of output csv for HU invoices",
+        help="Name of output csv for HU invoice",
     )
     parser.add_argument(
         "--HU-BU-invoice-file",
         required=False,
         default="HU_BU.csv",
-        help="Name of output csv for HU and BU invoices",
+        help="Name of output csv for HU and BU invoice",
+    )
+    parser.add_argument(
+        "--Lenovo-file",
+        required=False,
+        default="Lenovo.csv",
+        help="Name of output csv for Lenovo SU Types invoice",
     )
     parser.add_argument(
         "--old-pi-file",
@@ -117,7 +166,15 @@ def main():
         help="Name of csv file listing previously billed PIs",
     )
     args = parser.parse_args()
-    merged_dataframe = merge_csv(args.csv_files)
+
+    invoice_month = args.invoice_month
+
+    if args.fetch_from_s3:
+        csv_files = fetch_S3_invoices(invoice_month)
+    else:
+        csv_files = args.csv_files
+
+    merged_dataframe = merge_csv(csv_files)
 
     pi = []
     projects = []
@@ -126,26 +183,54 @@ def main():
     with open(args.projects_file) as file:
         projects = [line.rstrip() for line in file]
 
-    invoice_date = get_invoice_date(merged_dataframe)
-    print("Invoice date: " + str(invoice_date))
+    print("Invoice date: " + str(invoice_month))
 
-    timed_projects_list = timed_projects(args.timed_projects_file, invoice_date)
+    timed_projects_list = timed_projects(args.timed_projects_file, invoice_month)
     print("The following timed-projects will not be billed for this period: ")
     print(timed_projects_list)
 
     projects = list(set(projects + timed_projects_list))
 
     merged_dataframe = add_institution(merged_dataframe)
-    remove_billables(merged_dataframe, pi, projects, "non_billable.csv")
+    remove_billables(merged_dataframe, pi, projects, args.nonbillable_file)
 
     billable_projects = remove_non_billables(merged_dataframe, pi, projects)
     billable_projects = validate_pi_names(billable_projects)
     credited_projects = apply_credits_new_pi(billable_projects, args.old_pi_file)
+
     export_billables(credited_projects, args.output_file)
-    export_pi_billables(billable_projects, args.output_folder)
-    export_HU_only(billable_projects, args.HU_invoice_file)
-    export_HU_BU(billable_projects, args.HU_BU_invoice_file)
-    export_lenovo(billable_projects)
+    export_pi_billables(credited_projects, args.output_folder, invoice_month)
+    export_HU_only(credited_projects, args.HU_invoice_file)
+    export_HU_BU(credited_projects, args.HU_BU_invoice_file)
+    export_lenovo(credited_projects, args.Lenovo_file)
+
+    if args.upload_to_s3:
+        invoice_list = [
+            args.nonbillable_file,
+            args.output_file,
+            args.HU_invoice_file,
+            args.HU_BU_invoice_file,
+            args.Lenovo_file,
+        ]
+
+        for pi_invoice in os.listdir(args.output_folder):
+            invoice_list.append(os.path.join(args.output_folder, pi_invoice))
+
+        upload_to_s3(invoice_list, invoice_month)
+
+
+def fetch_S3_invoices(invoice_month):
+    """Fetches usage invoices from S3 given invoice month"""
+    s3_invoice_list = list()
+    invoice_bucket = get_invoice_bucket()
+    for obj in invoice_bucket.objects.filter(
+        Prefix=f"Invoices/{invoice_month}/Service Invoices/"
+    ):
+        local_name = obj.key.split("/")[-1]
+        s3_invoice_list.append(local_name)
+        invoice_bucket.download_file(obj.key, local_name)
+
+    return s3_invoice_list
 
 
 def merge_csv(files):
@@ -215,27 +300,6 @@ def validate_pi_names(dataframe):
     return dataframe
 
 
-def export_billables(dataframe, output_file):
-    dataframe.to_csv(output_file, index=False)
-
-
-def export_pi_billables(dataframe: pandas.DataFrame, output_folder):
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
-
-    invoice_month = dataframe[INVOICE_DATE_FIELD].iat[0]
-    pi_list = dataframe[PI_FIELD].unique()
-
-    for pi in pi_list:
-        if pandas.isna(pi):
-            continue
-        pi_projects = dataframe[dataframe[PI_FIELD] == pi]
-        pi_instituition = pi_projects[INSTITUTION_FIELD].iat[0]
-        pi_projects.to_csv(
-            output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv"
-        )
-
-
 def apply_credits_new_pi(dataframe, old_pi_file):
     new_pi_credit_code = "0002"
     new_pi_credit_amount = 1000
@@ -297,6 +361,26 @@ def add_institution(dataframe: pandas.DataFrame):
     return dataframe
 
 
+def export_billables(dataframe, output_file):
+    dataframe.to_csv(output_file, index=False)
+
+
+def export_pi_billables(dataframe: pandas.DataFrame, output_folder, invoice_month):
+    if not os.path.exists(output_folder):
+        os.mkdir(output_folder)
+
+    pi_list = dataframe[PI_FIELD].unique()
+
+    for pi in pi_list:
+        if pandas.isna(pi):
+            continue
+        pi_projects = dataframe[dataframe[PI_FIELD] == pi]
+        pi_instituition = pi_projects[INSTITUTION_FIELD].iat[0]
+        pi_projects.to_csv(
+            output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv"
+        )
+
+
 def export_HU_only(dataframe, output_file):
     HU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Harvard University"]
     HU_projects.to_csv(output_file)
@@ -310,11 +394,7 @@ def export_HU_BU(dataframe, output_file):
     HU_BU_projects.to_csv(output_file)
 
 
-def export_lenovo(dataframe: pandas.DataFrame, output_file=None):
-    lenovo_file_name = (
-        output_file or f"Lenovo_{dataframe[INVOICE_DATE_FIELD].iat[0]}.csv"
-    )
-
+def export_lenovo(dataframe: pandas.DataFrame, output_file):
     LENOVO_SU_TYPES = ["OpenShift GPUA100SXM4", "OpenStack GPUA100SXM4"]
     SU_CHARGE_MULTIPLIER = 1
 
@@ -331,7 +411,19 @@ def export_lenovo(dataframe: pandas.DataFrame, output_file=None):
     lenovo_df.rename(columns={SU_HOURS_FIELD: "SU Hours"}, inplace=True)
     lenovo_df.insert(len(lenovo_df.columns), "SU Charge", SU_CHARGE_MULTIPLIER)
     lenovo_df["Charge"] = lenovo_df["SU Hours"] * lenovo_df["SU Charge"]
-    lenovo_df.to_csv(lenovo_file_name)
+    lenovo_df.to_csv(output_file)
+
+
+def upload_to_s3(invoice_list: list, invoice_month):
+    invoice_bucket = get_invoice_bucket()
+    for invoice_filename in invoice_list:
+        striped_filename = os.path.splitext(invoice_filename)[0]
+        invoice_s3_path = (
+            f"Invoices/{invoice_month}/{striped_filename} {invoice_month}.csv"
+        )
+        invoice_s3_path_archive = f"Invoices/{invoice_month}/Archive/{striped_filename} {invoice_month} {get_iso8601_time()}.csv"
+        invoice_bucket.upload_file(invoice_filename, invoice_s3_path)
+        invoice_bucket.upload_file(invoice_filename, invoice_s3_path_archive)
 
 
 if __name__ == "__main__":
