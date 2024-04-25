@@ -143,12 +143,6 @@ def main():
         help="Name of output folder containing pi-specific invoice csvs",
     )
     parser.add_argument(
-        "--HU-invoice-file",
-        required=False,
-        default="HU_only.csv",
-        help="Name of output csv for HU invoice",
-    )
-    parser.add_argument(
         "--HU-BU-invoice-file",
         required=False,
         default="HU_BU.csv",
@@ -200,7 +194,6 @@ def main():
 
     export_billables(credited_projects, args.output_file)
     export_pi_billables(credited_projects, args.output_folder, invoice_month)
-    export_HU_only(credited_projects, args.HU_invoice_file)
     export_HU_BU(credited_projects, args.HU_BU_invoice_file)
     export_lenovo(credited_projects, args.Lenovo_file)
 
@@ -208,7 +201,6 @@ def main():
         invoice_list = [
             args.nonbillable_file,
             args.output_file,
-            args.HU_invoice_file,
             args.HU_BU_invoice_file,
             args.Lenovo_file,
         ]
@@ -379,11 +371,6 @@ def export_pi_billables(dataframe: pandas.DataFrame, output_folder, invoice_mont
         pi_projects.to_csv(
             output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv"
         )
-
-
-def export_HU_only(dataframe, output_file):
-    HU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Harvard University"]
-    HU_projects.to_csv(output_file)
 
 
 def export_HU_BU(dataframe, output_file):
