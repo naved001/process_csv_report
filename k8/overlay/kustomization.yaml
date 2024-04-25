@@ -1,0 +1,4 @@
+resources:
+  - ../base
+  - secret-b2-old-pi.yaml
+  - secret-gh-nonbillables.yaml
