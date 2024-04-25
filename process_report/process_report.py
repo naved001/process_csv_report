@@ -201,7 +201,6 @@ def main():
         invoice_list = [
             args.nonbillable_file,
             args.output_file,
-            args.HU_BU_invoice_file,
             args.Lenovo_file,
         ]
 
@@ -209,6 +208,7 @@ def main():
             invoice_list.append(os.path.join(args.output_folder, pi_invoice))
 
         upload_to_s3(invoice_list, invoice_month)
+        upload_to_s3_HU_BU(args.HU_BU_invoice_file, invoice_month)
 
 
 def fetch_S3_invoices(invoice_month):
@@ -411,6 +411,18 @@ def upload_to_s3(invoice_list: list, invoice_month):
         invoice_s3_path_archive = f"Invoices/{invoice_month}/Archive/{striped_filename} {invoice_month} {get_iso8601_time()}.csv"
         invoice_bucket.upload_file(invoice_filename, invoice_s3_path)
         invoice_bucket.upload_file(invoice_filename, invoice_s3_path_archive)
+
+
+def upload_to_s3_HU_BU(invoice_filename, invoice_month):
+    invoice_bucket = get_invoice_bucket()
+    invoice_bucket.upload_file(
+        invoice_filename,
+        f"Invoices/{invoice_month}/NERC-{invoice_month}-Total-Invoice.csv",
+    )
+    invoice_bucket.upload_file(
+        invoice_filename,
+        f"Invoices/{invoice_month}/Archive/NERC-{invoice_month}-Total-Invoice {get_iso8601_time()}.csv",
+    )
 
 
 if __name__ == "__main__":
