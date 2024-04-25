@@ -2,10 +2,12 @@ import argparse
 import os
 import sys
 import datetime
+from decimal import Decimal
 
 import json
 import pandas
 import boto3
+import pyarrow
 
 
 ### Invoice field names
@@ -229,7 +231,9 @@ def merge_csv(files):
     """Merge multiple CSV files and return a single pandas dataframe"""
     dataframes = []
     for file in files:
-        dataframe = pandas.read_csv(file)
+        dataframe = pandas.read_csv(
+            file, dtype={COST_FIELD: pandas.ArrowDtype(pyarrow.decimal128(12, 3))}
+        )
         dataframes.append(dataframe)
 
     merged_dataframe = pandas.concat(dataframes, ignore_index=True)
@@ -298,7 +302,7 @@ def apply_credits_new_pi(dataframe, old_pi_file):
 
     dataframe[CREDIT_FIELD] = None
     dataframe[CREDIT_CODE_FIELD] = None
-    dataframe[BALANCE_FIELD] = 0
+    dataframe[BALANCE_FIELD] = Decimal(0)
 
     old_pi_dict = load_old_pis(old_pi_file)
 
