@@ -143,12 +143,6 @@ def main():
         help="Name of output folder containing pi-specific invoice csvs",
     )
     parser.add_argument(
-        "--HU-invoice-file",
-        required=False,
-        default="HU_only.csv",
-        help="Name of output csv for HU invoice",
-    )
-    parser.add_argument(
         "--HU-BU-invoice-file",
         required=False,
         default="HU_BU.csv",
@@ -200,7 +194,6 @@ def main():
 
     export_billables(credited_projects, args.output_file)
     export_pi_billables(credited_projects, args.output_folder, invoice_month)
-    export_HU_only(credited_projects, args.HU_invoice_file)
     export_HU_BU(credited_projects, args.HU_BU_invoice_file)
     export_lenovo(credited_projects, args.Lenovo_file)
 
@@ -208,8 +201,6 @@ def main():
         invoice_list = [
             args.nonbillable_file,
             args.output_file,
-            args.HU_invoice_file,
-            args.HU_BU_invoice_file,
             args.Lenovo_file,
         ]
 
@@ -217,6 +208,7 @@ def main():
             invoice_list.append(os.path.join(args.output_folder, pi_invoice))
 
         upload_to_s3(invoice_list, invoice_month)
+        upload_to_s3_HU_BU(args.HU_BU_invoice_file, invoice_month)
 
 
 def fetch_S3_invoices(invoice_month):
@@ -381,11 +373,6 @@ def export_pi_billables(dataframe: pandas.DataFrame, output_folder, invoice_mont
         )
 
 
-def export_HU_only(dataframe, output_file):
-    HU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Harvard University"]
-    HU_projects.to_csv(output_file)
-
-
 def export_HU_BU(dataframe, output_file):
     HU_BU_projects = dataframe[
         (dataframe[INSTITUTION_FIELD] == "Harvard University")
@@ -424,6 +411,18 @@ def upload_to_s3(invoice_list: list, invoice_month):
         invoice_s3_path_archive = f"Invoices/{invoice_month}/Archive/{striped_filename} {invoice_month} {get_iso8601_time()}.csv"
         invoice_bucket.upload_file(invoice_filename, invoice_s3_path)
         invoice_bucket.upload_file(invoice_filename, invoice_s3_path_archive)
+
+
+def upload_to_s3_HU_BU(invoice_filename, invoice_month):
+    invoice_bucket = get_invoice_bucket()
+    invoice_bucket.upload_file(
+        invoice_filename,
+        f"Invoices/{invoice_month}/NERC-{invoice_month}-Total-Invoice.csv",
+    )
+    invoice_bucket.upload_file(
+        invoice_filename,
+        f"Invoices/{invoice_month}/Archive/NERC-{invoice_month}-Total-Invoice {get_iso8601_time()}.csv",
+    )
 
 
 if __name__ == "__main__":
