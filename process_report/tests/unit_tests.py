@@ -339,6 +339,89 @@ class TestCredit0002(TestCase):
             process_report.is_old_pi(old_pi_dict, "PI1", invoice_month)
 
 
+class TestBUSubsidy(TestCase):
+    def setUp(self):
+        data = {
+            "Invoice Month": [
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+            ],
+            "Manager (PI)": ["PI1", "PI2", "PI3", "PI3", "PI4", "PI4"],
+            "Institution": [
+                "Boston University",
+                "Boston University",
+                "Harvard University",
+                "Harvard University",
+                "Boston University",
+                "Boston University",
+            ],
+            "Project - Allocation": [
+                "ProjectA-e6413",
+                "ProjectB-5t143t",
+                "ProjectC-t14334",
+                "ProjectD",
+                "ProjectE-test-r25135",
+                "ProjectF",
+            ],
+            "Cost": [1050, 100, 10000, 1000, 1050, 100],
+            "Credit": [1000, 100, 0, 0, 1000, 0],
+            "Balance": [50, 0, 10000, 1000, 50, 100],
+        }
+        self.dataframe = pandas.DataFrame(data)
+        output_file = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".csv")
+        self.output_file = output_file.name
+        self.subsidy = 100
+
+    def test_apply_BU_subsidy(self):
+        process_report.export_BU_only(self.dataframe, self.output_file, self.subsidy)
+        output_df = pandas.read_csv(self.output_file)
+
+        self.assertTrue(
+            set(
+                [
+                    process_report.INVOICE_DATE_FIELD,
+                    "Project",
+                    process_report.PI_FIELD,
+                    process_report.COST_FIELD,
+                    process_report.CREDIT_FIELD,
+                    process_report.SUBSIDY_FIELD,
+                    process_report.BALANCE_FIELD,
+                ]
+            ).issubset(output_df)
+        )
+
+        self.assertTrue(
+            set(["PI1", "PI2", "PI4"]).issubset(output_df["Manager (PI)"].unique())
+        )
+        self.assertFalse("PI3" in output_df["Project"].unique())
+
+        self.assertTrue(
+            set(["ProjectA", "ProjectB", "ProjectE-test", "ProjectF"]).issubset(
+                output_df["Project"].unique()
+            )
+        )
+        self.assertFalse(
+            set(["ProjectC-t14334", "ProjectC", "ProjectD"]).intersection(
+                output_df["Project"].unique()
+            )
+        )
+
+        self.assertEqual(4, len(output_df.index))
+        self.assertEqual(50, output_df.loc[0, "Subsidy"])
+        self.assertEqual(0, output_df.loc[1, "Subsidy"])
+        self.assertEqual(50, output_df.loc[2, "Subsidy"])
+        self.assertEqual(50, output_df.loc[3, "Subsidy"])
+
+        self.assertEqual(0, output_df.loc[0, "Balance"])
+        self.assertEqual(0, output_df.loc[1, "Balance"])
+        self.assertEqual(0, output_df.loc[2, "Balance"])
+        self.assertEqual(50, output_df.loc[3, "Balance"])
+
+
 class TestValidateBillables(TestCase):
     def setUp(self):
         data = {

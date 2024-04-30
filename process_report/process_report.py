@@ -24,6 +24,7 @@ SU_TYPE_FIELD = "SU Type"
 COST_FIELD = "Cost"
 CREDIT_FIELD = "Credit"
 CREDIT_CODE_FIELD = "Credit Code"
+SUBSIDY_FIELD = "Subsidy"
 BALANCE_FIELD = "Balance"
 ###
 
@@ -163,6 +164,12 @@ def main():
         help="Name of output folder containing pi-specific invoice csvs",
     )
     parser.add_argument(
+        "--BU-invoice-file",
+        required=False,
+        default="BU_Internal.csv",
+        help="Name of output csv for BU invoices",
+    )
+    parser.add_argument(
         "--HU-BU-invoice-file",
         required=False,
         default="HU_BU.csv",
@@ -178,6 +185,12 @@ def main():
         "--old-pi-file",
         required=False,
         help="Name of csv file listing previously billed PIs. If not provided, defaults to fetching from S3",
+    )
+    parser.add_argument(
+        "--BU-subsidy-amount",
+        required=True,
+        type=int,
+        help="Amount of subsidy given to BU PIs",
     )
     args = parser.parse_args()
 
@@ -218,6 +231,7 @@ def main():
 
     export_billables(credited_projects, args.output_file)
     export_pi_billables(credited_projects, args.output_folder, invoice_month)
+    export_BU_only(billable_projects, args.BU_invoice_file, args.BU_subsidy_amount)
     export_HU_BU(credited_projects, args.HU_BU_invoice_file)
     export_lenovo(credited_projects, args.Lenovo_file)
 
@@ -414,6 +428,52 @@ def export_pi_billables(dataframe: pandas.DataFrame, output_folder, invoice_mont
         pi_projects.to_csv(
             output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv"
         )
+
+
+def export_BU_only(dataframe: pandas.DataFrame, output_file, subsidy_amount):
+    def get_project(row):
+        project_alloc = row[PROJECT_FIELD]
+        if project_alloc.rfind("-") == -1:
+            return project_alloc
+        else:
+            return project_alloc[: project_alloc.rfind("-")]
+
+    BU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Boston University"]
+    BU_projects["Project"] = BU_projects.apply(get_project, axis=1)
+    BU_projects[SUBSIDY_FIELD] = 0
+    BU_projects = BU_projects[
+        [
+            INVOICE_DATE_FIELD,
+            PI_FIELD,
+            "Project",
+            COST_FIELD,
+            CREDIT_FIELD,
+            SUBSIDY_FIELD,
+            BALANCE_FIELD,
+        ]
+    ]
+    BU_projects = _apply_subsidy(BU_projects, subsidy_amount)
+    BU_projects.to_csv(output_file)
+
+
+def _apply_subsidy(dataframe, subsidy_amount):
+    pi_list = dataframe[PI_FIELD].unique()
+
+    for pi in pi_list:
+        pi_projects = dataframe[dataframe[PI_FIELD] == pi]
+        remaining_subsidy = subsidy_amount
+        for i, row in pi_projects.iterrows():
+            project_remaining_cost = row[BALANCE_FIELD]
+            applied_subsidy = min(project_remaining_cost, remaining_subsidy)
+
+            dataframe.at[i, SUBSIDY_FIELD] = applied_subsidy
+            dataframe.at[i, BALANCE_FIELD] = row[BALANCE_FIELD] - applied_subsidy
+            remaining_subsidy -= applied_subsidy
+
+            if remaining_subsidy == 0:
+                break
+
+    return dataframe
 
 
 def export_HU_BU(dataframe, output_file):
