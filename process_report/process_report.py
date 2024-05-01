@@ -269,7 +269,7 @@ def merge_csv(files):
     dataframes = []
     for file in files:
         dataframe = pandas.read_csv(
-            file, dtype={COST_FIELD: pandas.ArrowDtype(pyarrow.decimal128(12, 3))}
+            file, dtype={COST_FIELD: pandas.ArrowDtype(pyarrow.decimal128(12, 2))}
         )
         dataframes.append(dataframe)
 
