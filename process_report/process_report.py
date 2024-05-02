@@ -398,6 +398,7 @@ def add_institution(dataframe: pandas.DataFrame):
     The list of mappings are defined in `institute_map.json`.
     """
     institute_map = load_institute_map()
+    dataframe = dataframe.astype({INSTITUTION_FIELD: "str"})
     for i, row in dataframe.iterrows():
         pi_name = row[PI_FIELD]
         if pandas.isna(pi_name):
@@ -438,9 +439,9 @@ def export_BU_only(dataframe: pandas.DataFrame, output_file, subsidy_amount):
         else:
             return project_alloc[: project_alloc.rfind("-")]
 
-    BU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Boston University"]
+    BU_projects = dataframe[dataframe[INSTITUTION_FIELD] == "Boston University"].copy()
     BU_projects["Project"] = BU_projects.apply(get_project, axis=1)
-    BU_projects[SUBSIDY_FIELD] = 0
+    BU_projects[SUBSIDY_FIELD] = Decimal(0)
     BU_projects = BU_projects[
         [
             INVOICE_DATE_FIELD,
@@ -496,7 +497,7 @@ def export_lenovo(dataframe: pandas.DataFrame, output_file):
             SU_HOURS_FIELD,
             SU_TYPE_FIELD,
         ]
-    ]
+    ].copy()
 
     lenovo_df.rename(columns={SU_HOURS_FIELD: "SU Hours"}, inplace=True)
     lenovo_df.insert(len(lenovo_df.columns), "SU Charge", SU_CHARGE_MULTIPLIER)
