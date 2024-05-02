@@ -349,27 +349,51 @@ class TestBUSubsidy(TestCase):
                 "2024-03",
                 "2024-03",
                 "2024-03",
+                "2024-03",
+                "2024-03",
             ],
-            "Manager (PI)": ["PI1", "PI2", "PI3", "PI3", "PI4", "PI4"],
+            "Manager (PI)": ["PI1", "PI1", "PI2", "PI2", "PI3", "PI3", "PI4", "PI4"],
             "Institution": [
                 "Boston University",
                 "Boston University",
-                "Harvard University",
+                "Boston University",
+                "Boston University",
+                "Harvard University",  # Test case for non-BU PIs
                 "Harvard University",
                 "Boston University",
                 "Boston University",
             ],
             "Project - Allocation": [
                 "ProjectA-e6413",
+                "ProjectA-t575e6",  # Test case for project with >1 allocation
+                "ProjectB-fddgfygg",
                 "ProjectB-5t143t",
                 "ProjectC-t14334",
-                "ProjectD",
-                "ProjectE-test-r25135",
+                "ProjectD",  # Test case for correctly extracting project name
+                "ProjectE-test-r25135",  # Test case for BU PI with >1 project
                 "ProjectF",
             ],
-            "Cost": [1050, 100, 10000, 1000, 1050, 100],
-            "Credit": [1000, 100, 0, 0, 1000, 0],
-            "Balance": [50, 0, 10000, 1000, 50, 100],
+            "Cost": [1050, 500, 100, 925, 10000, 1000, 1050, 100],
+            "Credit": [
+                1000,
+                0,
+                100,
+                900,
+                0,
+                0,
+                1000,
+                0,
+            ],  # Test cases where PI does/dones't have credits alreadys
+            "Balance": [
+                50,
+                500,
+                0,
+                25,
+                10000,
+                1000,
+                50,
+                100,
+            ],  # Test case where subsidy does/doesn't cover fully balance
         }
         self.dataframe = pandas.DataFrame(data)
         output_file = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".csv")
@@ -411,12 +435,17 @@ class TestBUSubsidy(TestCase):
         )
 
         self.assertEqual(4, len(output_df.index))
-        self.assertEqual(50, output_df.loc[0, "Subsidy"])
-        self.assertEqual(0, output_df.loc[1, "Subsidy"])
+        self.assertEqual(1550, output_df.loc[0, "Cost"])
+        self.assertEqual(1025, output_df.loc[1, "Cost"])
+        self.assertEqual(1050, output_df.loc[2, "Cost"])
+        self.assertEqual(100, output_df.loc[3, "Cost"])
+
+        self.assertEqual(100, output_df.loc[0, "Subsidy"])
+        self.assertEqual(25, output_df.loc[1, "Subsidy"])
         self.assertEqual(50, output_df.loc[2, "Subsidy"])
         self.assertEqual(50, output_df.loc[3, "Subsidy"])
 
-        self.assertEqual(0, output_df.loc[0, "Balance"])
+        self.assertEqual(450, output_df.loc[0, "Balance"])
         self.assertEqual(0, output_df.loc[1, "Balance"])
         self.assertEqual(0, output_df.loc[2, "Balance"])
         self.assertEqual(50, output_df.loc[3, "Balance"])
