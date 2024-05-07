@@ -278,9 +278,31 @@ class TestCredit0002(TestCase):
                 "ProjectE",
                 "ProjectF",
             ],
+            "SU Type": ["CPU", "CPU", "CPU", "GPU", "GPU", "GPU"],
             "Cost": [10, 100, 10000, 5000, 800, 1000],
         }
         self.dataframe = pandas.DataFrame(data)
+
+        data_no_gpu = {
+            "Invoice Month": [
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+            ],
+            "Manager (PI)": ["PI1", "PI1", "PI1", "PI2", "PI2"],
+            "SU Type": [
+                "GPU",
+                "OpenShift GPUA100SXM4",
+                "OpenStack GPUA100SXM4",
+                "OpenShift GPUA100SXM4",
+                "OpenStack GPUA100SXM4",
+            ],
+            "Cost": [500, 100, 100, 500, 500],
+        }
+        self.dataframe_no_gpu = pandas.DataFrame(data_no_gpu)
+
         old_pi = [
             "PI2,2023-09",
             "PI3,2024-02",
@@ -291,8 +313,42 @@ class TestCredit0002(TestCase):
             old_pi_file.write(pi + "\n")
         self.old_pi_file = old_pi_file.name
 
+        old_pi_no_gpu = [
+            "OldPI,2024-03",
+        ]
+        old_pi_no_gpu_file = tempfile.NamedTemporaryFile(
+            delete=False, mode="w", suffix=".csv"
+        )
+        for pi in old_pi_no_gpu:
+            old_pi_no_gpu_file.write(pi + "\n")
+        self.old_pi_no_gpu_file = old_pi_no_gpu_file.name
+        self.no_gpu_df_answer = pandas.DataFrame(
+            {
+                "Invoice Month": [
+                    "2024-03",
+                    "2024-03",
+                    "2024-03",
+                    "2024-03",
+                    "2024-03",
+                ],
+                "Manager (PI)": ["PI1", "PI1", "PI1", "PI2", "PI2"],
+                "SU Type": [
+                    "GPU",
+                    "OpenShift GPUA100SXM4",
+                    "OpenStack GPUA100SXM4",
+                    "OpenShift GPUA100SXM4",
+                    "OpenStack GPUA100SXM4",
+                ],
+                "Cost": [500, 100, 100, 500, 500],
+                "Credit": [500, None, None, None, None],
+                "Credit Code": ["0002", None, None, None, None],
+                "Balance": [0.0, 100.0, 100.0, 500.0, 500.0],
+            }
+        )
+
     def tearDown(self):
         os.remove(self.old_pi_file)
+        os.remove(self.old_pi_no_gpu_file)
 
     def test_apply_credit_0002(self):
         dataframe = process_report.apply_credits_new_pi(
@@ -331,6 +387,13 @@ class TestCredit0002(TestCase):
         updated_old_pi_answer = "PI2,2023-09\nPI3,2024-02\nPI4,2024-03\nPI1,2024-03\n"
         with open(self.old_pi_file, "r") as f:
             self.assertEqual(updated_old_pi_answer, f.read())
+
+    def test_no_gpu(self):
+        dataframe = process_report.apply_credits_new_pi(
+            self.dataframe_no_gpu, self.old_pi_no_gpu_file
+        )
+        dataframe = dataframe.astype({"Credit": "float64", "Balance": "float64"})
+        self.assertTrue(self.no_gpu_df_answer.equals(dataframe))
 
     def test_apply_credit_error(self):
         old_pi_dict = {"PI1": "2024-12"}
