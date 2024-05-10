@@ -223,6 +223,7 @@ def main():
     projects = list(set(projects + timed_projects_list))
 
     merged_dataframe = add_institution(merged_dataframe)
+    export_lenovo(merged_dataframe, args.Lenovo_file)
     remove_billables(merged_dataframe, pi, projects, args.nonbillable_file)
 
     billable_projects = remove_non_billables(merged_dataframe, pi, projects)
@@ -233,7 +234,6 @@ def main():
     export_pi_billables(credited_projects, args.output_folder, invoice_month)
     export_BU_only(billable_projects, args.BU_invoice_file, args.BU_subsidy_amount)
     export_HU_BU(credited_projects, args.HU_BU_invoice_file)
-    export_lenovo(credited_projects, args.Lenovo_file)
 
     if args.upload_to_s3:
         invoice_list = [
