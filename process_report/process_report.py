@@ -28,6 +28,8 @@ SUBSIDY_FIELD = "Subsidy"
 BALANCE_FIELD = "Balance"
 ###
 
+PI_S3_FILEPATH = "PIs/PI.csv"
+
 
 def get_institution_from_pi(institute_map, pi_uname):
     institution_key = pi_uname.split("@")[-1]
@@ -376,13 +378,13 @@ def apply_credits_new_pi(dataframe, old_pi_file):
 def fetch_s3_old_pi_file():
     local_name = "PI.csv"
     invoice_bucket = get_invoice_bucket()
-    invoice_bucket.download_file("PIs/PI.csv", local_name)
+    invoice_bucket.download_file(PI_S3_FILEPATH, local_name)
     return local_name
 
 
 def upload_to_s3_old_pi_file(old_pi_file):
     invoice_bucket = get_invoice_bucket()
-    invoice_bucket.upload_file(old_pi_file, "PIs/PI.csv")
+    invoice_bucket.upload_file(old_pi_file, PI_S3_FILEPATH)
 
 
 def add_institution(dataframe: pandas.DataFrame):
