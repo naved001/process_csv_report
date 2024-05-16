@@ -338,6 +338,7 @@ def validate_pi_names(dataframe):
 def apply_credits_new_pi(dataframe, old_pi_file):
     new_pi_credit_code = "0002"
     new_pi_credit_amount = 1000
+    EXCLUDE_SU_TYPES = ["OpenShift GPUA100SXM4", "OpenStack GPUA100SXM4"]
 
     dataframe[CREDIT_FIELD] = None
     dataframe[CREDIT_CODE_FIELD] = None
@@ -359,16 +360,16 @@ def apply_credits_new_pi(dataframe, old_pi_file):
             print(f"Found new PI {pi}")
             remaining_credit = new_pi_credit_amount
             for i, row in pi_projects.iterrows():
-                project_cost = row[COST_FIELD]
-                applied_credit = min(project_cost, remaining_credit)
+                if remaining_credit == 0 or row[SU_TYPE_FIELD] in EXCLUDE_SU_TYPES:
+                    dataframe.at[i, BALANCE_FIELD] = row[COST_FIELD]
+                else:
+                    project_cost = row[COST_FIELD]
+                    applied_credit = min(project_cost, remaining_credit)
 
-                dataframe.at[i, CREDIT_FIELD] = applied_credit
-                dataframe.at[i, CREDIT_CODE_FIELD] = new_pi_credit_code
-                dataframe.at[i, BALANCE_FIELD] = row[COST_FIELD] - applied_credit
-                remaining_credit -= applied_credit
-
-                if remaining_credit == 0:
-                    break
+                    dataframe.at[i, CREDIT_FIELD] = applied_credit
+                    dataframe.at[i, CREDIT_CODE_FIELD] = new_pi_credit_code
+                    dataframe.at[i, BALANCE_FIELD] = row[COST_FIELD] - applied_credit
+                    remaining_credit -= applied_credit
 
     dump_old_pis(old_pi_file, old_pi_dict)
 
