@@ -455,8 +455,19 @@ def export_BU_only(dataframe: pandas.DataFrame, output_file, subsidy_amount):
             BALANCE_FIELD,
         ]
     ]
-    BU_projects = _apply_subsidy(BU_projects, subsidy_amount)
-    BU_projects.to_csv(output_file)
+
+    project_list = BU_projects["Project"].unique()
+    BU_projects_no_dup = BU_projects.drop_duplicates("Project", inplace=False)
+    sum_fields = [COST_FIELD, CREDIT_FIELD, BALANCE_FIELD]
+    for project in project_list:
+        project_mask = BU_projects["Project"] == project
+        no_dup_project_mask = BU_projects_no_dup["Project"] == project
+
+        sum_fields_sums = BU_projects[project_mask][sum_fields].sum().values
+        BU_projects_no_dup.loc[no_dup_project_mask, sum_fields] = sum_fields_sums
+
+    BU_projects_no_dup = _apply_subsidy(BU_projects_no_dup, subsidy_amount)
+    BU_projects_no_dup.to_csv(output_file)
 
 
 def _apply_subsidy(dataframe, subsidy_amount):
