@@ -230,6 +230,9 @@ def main():
 
     billable_projects = remove_non_billables(merged_dataframe, pi, projects)
     billable_projects = validate_pi_names(billable_projects)
+
+    if args.upload_to_s3:
+        backup_to_s3_old_pi_file(old_pi_file)
     credited_projects = apply_credits_new_pi(billable_projects, old_pi_file)
 
     export_billables(credited_projects, args.output_file)
@@ -386,6 +389,11 @@ def fetch_s3_old_pi_file():
 def upload_to_s3_old_pi_file(old_pi_file):
     invoice_bucket = get_invoice_bucket()
     invoice_bucket.upload_file(old_pi_file, PI_S3_FILEPATH)
+
+
+def backup_to_s3_old_pi_file(old_pi_file):
+    invoice_bucket = get_invoice_bucket()
+    invoice_bucket.upload_file(old_pi_file, f"PIs/Archive/PI {get_iso8601_time()}.csv")
 
 
 def add_institution(dataframe: pandas.DataFrame):
