@@ -9,6 +9,8 @@ import pandas
 import boto3
 import pyarrow
 
+from process_report.invoices import lenovo_invoice, nonbillable_invoice
+
 
 ### Invoice field names
 INVOICE_DATE_FIELD = "Invoice Month"
@@ -150,7 +152,7 @@ def main():
     parser.add_argument(
         "--nonbillable-file",
         required=False,
-        default="nonbillable.csv",
+        default="nonbillable",
         help="Name of nonbillable file",
     )
     parser.add_argument(
@@ -180,7 +182,7 @@ def main():
     parser.add_argument(
         "--Lenovo-file",
         required=False,
-        default="Lenovo.csv",
+        default="Lenovo",
         help="Name of output csv for Lenovo SU Types invoice",
     )
     parser.add_argument(
@@ -225,8 +227,22 @@ def main():
     projects = list(set(projects + timed_projects_list))
 
     merged_dataframe = add_institution(merged_dataframe)
-    export_lenovo(merged_dataframe, args.Lenovo_file)
-    remove_billables(merged_dataframe, pi, projects, args.nonbillable_file)
+    lenovo_inv = lenovo_invoice.LenovoInvoice(
+        name=args.Lenovo_file, invoice_month=invoice_month, data=merged_dataframe.copy()
+    )
+    nonbillable_inv = nonbillable_invoice.NonbillableInvoice(
+        name=args.nonbillable_file,
+        invoice_month=invoice_month,
+        data=merged_dataframe.copy(),
+        nonbillable_pis=pi,
+        nonbillable_projects=projects,
+    )
+    for invoice in [lenovo_inv, nonbillable_inv]:
+        invoice.process()
+        invoice.export()
+        if args.upload_to_s3:
+            bucket = get_invoice_bucket()
+            invoice.export_s3(bucket)
 
     billable_projects = remove_non_billables(merged_dataframe, pi, projects)
     billable_projects = validate_pi_names(billable_projects)
@@ -239,9 +255,7 @@ def main():
 
     if args.upload_to_s3:
         invoice_list = [
-            args.nonbillable_file,
             args.output_file,
-            args.Lenovo_file,
         ]
 
         for pi_invoice in os.listdir(args.output_folder):
@@ -313,17 +327,6 @@ def remove_non_billables(dataframe, pi, projects):
         ~dataframe[PI_FIELD].isin(pi) & ~dataframe[PROJECT_FIELD].isin(projects)
     ]
     return filtered_dataframe
-
-
-def remove_billables(dataframe, pi, projects, output_file):
-    """Removes projects and PIs that should be billed from the dataframe
-
-    So this *keeps* the projects/pis that should not be billed.
-    """
-    filtered_dataframe = dataframe[
-        dataframe[PI_FIELD].isin(pi) | dataframe[PROJECT_FIELD].isin(projects)
-    ]
-    filtered_dataframe.to_csv(output_file, index=False)
 
 
 def validate_pi_names(dataframe):
@@ -497,26 +500,6 @@ def export_HU_BU(dataframe, output_file):
         | (dataframe[INSTITUTION_FIELD] == "Boston University")
     ]
     HU_BU_projects.to_csv(output_file)
-
-
-def export_lenovo(dataframe: pandas.DataFrame, output_file):
-    LENOVO_SU_TYPES = ["OpenShift GPUA100SXM4", "OpenStack GPUA100SXM4"]
-    SU_CHARGE_MULTIPLIER = 1
-
-    lenovo_df = dataframe[dataframe[SU_TYPE_FIELD].isin(LENOVO_SU_TYPES)][
-        [
-            INVOICE_DATE_FIELD,
-            PROJECT_FIELD,
-            INSTITUTION_FIELD,
-            SU_HOURS_FIELD,
-            SU_TYPE_FIELD,
-        ]
-    ].copy()
-
-    lenovo_df.rename(columns={SU_HOURS_FIELD: "SU Hours"}, inplace=True)
-    lenovo_df.insert(len(lenovo_df.columns), "SU Charge", SU_CHARGE_MULTIPLIER)
-    lenovo_df["Charge"] = lenovo_df["SU Hours"] * lenovo_df["SU Charge"]
-    lenovo_df.to_csv(output_file)
 
 
 def upload_to_s3(invoice_list: list, invoice_month):
