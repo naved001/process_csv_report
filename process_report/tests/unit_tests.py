@@ -258,6 +258,27 @@ class TestGetInstitute(TestCase):
         )
 
 
+class TestAlias(TestCase):
+    def setUp(self):
+        self.alias_dict = {"PI1": ["PI1_1", "PI1_2"], "PI2": ["PI2_1"]}
+
+        self.data = pandas.DataFrame(
+            {
+                "Manager (PI)": ["PI1", "PI1_1", "PI1_2", "PI2_1", "PI2_1"],
+            }
+        )
+
+        self.answer = pandas.DataFrame(
+            {
+                "Manager (PI)": ["PI1", "PI1", "PI1", "PI2", "PI2"],
+            }
+        )
+
+    def test_validate_alias(self):
+        output = process_report.validate_pi_aliases(self.data, self.alias_dict)
+        self.assertTrue(self.answer.equals(output))
+
+
 class TestCredit0002(TestCase):
     def setUp(self):
         data = {

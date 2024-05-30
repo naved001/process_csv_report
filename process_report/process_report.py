@@ -31,6 +31,9 @@ BALANCE_FIELD = "Balance"
 PI_S3_FILEPATH = "PIs/PI.csv"
 
 
+ALIAS_S3_FILEPATH = "PIs/alias.csv"
+
+
 def get_institution_from_pi(institute_map, pi_uname):
     institution_key = pi_uname.split("@")[-1]
     institution_name = institute_map.get(institution_key, "")
@@ -57,8 +60,7 @@ def load_old_pis(old_pi_file):
                 pi, first_month = pi_info.strip().split(",")
                 old_pi_dict[pi] = first_month
     except FileNotFoundError:
-        print("Applying credit 0002 failed. Old PI file does not exist")
-        sys.exit(1)
+        sys.exit("Applying credit 0002 failed. Old PI file does not exist")
 
     return old_pi_dict
 
@@ -67,6 +69,21 @@ def dump_old_pis(old_pi_file, old_pi_dict: dict):
     with open(old_pi_file, "w") as f:
         for pi, first_month in old_pi_dict.items():
             f.write(f"{pi},{first_month}\n")
+
+
+def load_alias(alias_file):
+    alias_dict = dict()
+
+    try:
+        with open(alias_file) as f:
+            for line in f:
+                pi_alias_info = line.strip().split(",")
+                alias_dict[pi_alias_info[0]] = pi_alias_info[1:]
+    except FileNotFoundError:
+        print("Validating PI aliases failed. Alias file does not exist")
+        sys.exit(1)
+
+    return alias_dict
 
 
 def is_old_pi(old_pi_dict, pi, invoice_month):
@@ -189,6 +206,11 @@ def main():
         help="Name of csv file listing previously billed PIs. If not provided, defaults to fetching from S3",
     )
     parser.add_argument(
+        "--alias-file",
+        required=False,
+        help="Name of alias file listing PIs with aliases (and their aliases). If not provided, defaults to fetching from S3",
+    )
+    parser.add_argument(
         "--BU-subsidy-amount",
         required=True,
         type=int,
@@ -202,10 +224,17 @@ def main():
         csv_files = fetch_s3_invoices(invoice_month)
     else:
         csv_files = args.csv_files
+
     if args.old_pi_file:
         old_pi_file = args.old_pi_file
     else:
         old_pi_file = fetch_s3_old_pi_file()
+
+    if args.alias_file:
+        alias_file = args.alias_file
+    else:
+        alias_file = fetch_s3_alias_file()
+    alias_dict = load_alias(alias_file)
 
     merged_dataframe = merge_csv(csv_files)
 
@@ -224,6 +253,7 @@ def main():
 
     projects = list(set(projects + timed_projects_list))
 
+    merged_dataframe = validate_pi_aliases(merged_dataframe, alias_dict)
     merged_dataframe = add_institution(merged_dataframe)
     export_lenovo(merged_dataframe, args.Lenovo_file)
     remove_billables(merged_dataframe, pi, projects, args.nonbillable_file)
@@ -336,6 +366,20 @@ def validate_pi_names(dataframe):
     dataframe = dataframe[~pandas.isna(dataframe[PI_FIELD])]
 
     return dataframe
+
+
+def validate_pi_aliases(dataframe: pandas.DataFrame, alias_dict: dict):
+    for pi, pi_aliases in alias_dict.items():
+        dataframe.loc[dataframe[PI_FIELD].isin(pi_aliases), PI_FIELD] = pi
+
+    return dataframe
+
+
+def fetch_s3_alias_file():
+    local_name = "alias.csv"
+    invoice_bucket = get_invoice_bucket()
+    invoice_bucket.download_file(ALIAS_S3_FILEPATH, local_name)
+    return local_name
 
 
 def apply_credits_new_pi(dataframe, old_pi_file):
