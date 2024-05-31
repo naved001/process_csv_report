@@ -1,6 +1,7 @@
 from unittest import TestCase, mock
 import tempfile
 import pandas
+import pyarrow
 import os
 import math
 from textwrap import dedent
@@ -279,6 +280,20 @@ class TestAlias(TestCase):
         self.assertTrue(self.answer.equals(output))
 
 
+class TestMonthUtils(TestCase):
+    def test_get_month_diff(self):
+        testcases = [
+            (("2024-12", "2024-03"), 9),
+            (("2024-12", "2023-03"), 21),
+            (("2024-11", "2024-12"), -1),
+            (("2024-12", "2025-03"), -3),
+        ]
+        for arglist, answer in testcases:
+            self.assertEqual(process_report.get_month_diff(*arglist), answer)
+        with self.assertRaises(ValueError):
+            process_report.get_month_diff("2024-16", "2025-03")
+
+
 class TestCredit0002(TestCase):
     def setUp(self):
         data = {
@@ -289,8 +304,38 @@ class TestCredit0002(TestCase):
                 "2024-03",
                 "2024-03",
                 "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
             ],
-            "Manager (PI)": ["PI1", "PI1", "PI2", "PI3", "PI4", "PI4"],
+            "Manager (PI)": [
+                "PI1",
+                "PI2",
+                "PI3",
+                "PI4",
+                "PI4",
+                "PI5",
+                "PI7",
+                "NewPI1",
+                "NewPI1",
+                "NewPI2",
+                "NewPI2",
+            ],
+            "SU Type": [
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+            ],
             "Project - Allocation": [
                 "ProjectA",
                 "ProjectB",
@@ -298,44 +343,182 @@ class TestCredit0002(TestCase):
                 "ProjectD",
                 "ProjectE",
                 "ProjectF",
+                "ProjectG",
+                "ProjectH",
+                "ProjectI",
+                "ProjectJ",
+                "ProjectK",
             ],
-            "SU Type": ["CPU", "CPU", "CPU", "GPU", "GPU", "GPU"],
-            "Cost": [10, 100, 10000, 5000, 800, 1000],
+            "Cost": [10, 100, 10000, 500, 100, 400, 200, 250, 250, 700, 700],
         }
-        self.dataframe = pandas.DataFrame(data)
-
-        data_no_gpu = {
+        answer_df_dict = {
             "Invoice Month": [
                 "2024-03",
                 "2024-03",
                 "2024-03",
                 "2024-03",
                 "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
+                "2024-03",
             ],
-            "Manager (PI)": ["PI1", "PI1", "PI1", "PI2", "PI2"],
+            "Manager (PI)": [
+                "PI1",
+                "PI2",
+                "PI3",
+                "PI4",
+                "PI4",
+                "PI5",
+                "PI7",
+                "NewPI1",
+                "NewPI1",
+                "NewPI2",
+                "NewPI2",
+            ],
             "SU Type": [
-                "GPU",
-                "OpenShift GPUA100SXM4",
-                "OpenStack GPUA100SXM4",
-                "OpenShift GPUA100SXM4",
-                "OpenStack GPUA100SXM4",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
+                "CPU",
             ],
-            "Cost": [500, 100, 100, 500, 500],
+            "Project - Allocation": [
+                "ProjectA",
+                "ProjectB",
+                "ProjectC",
+                "ProjectD",
+                "ProjectE",
+                "ProjectF",
+                "ProjectG",
+                "ProjectH",
+                "ProjectI",
+                "ProjectJ",
+                "ProjectK",
+            ],
+            "Cost": [10, 100, 10000, 500, 100, 400, 200, 250, 250, 700, 700],
+            "Credit": [None, None, None, 100, None, 400, 200, 250, 250, 500, None],
+            "Credit Code": [
+                None,
+                None,
+                None,
+                "0002",
+                None,
+                "0002",
+                "0002",
+                "0002",
+                "0002",
+                "0002",
+                None,
+            ],
+            "Balance": [10, 100, 10000, 400, 100, 0, 0, 0, 0, 200, 700],
         }
-        self.dataframe_no_gpu = pandas.DataFrame(data_no_gpu)
-
+        self.dataframe = pandas.DataFrame(data)
+        self.answer_dataframe = pandas.DataFrame(answer_df_dict)
         old_pi = [
-            "PI2,2023-09",
-            "PI3,2024-02",
-            "PI4,2024-03",
-        ]  # Case with old and new pi in pi file
-        old_pi_file = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".csv")
+            "PI,First Invoice Month,Initial Credits,1st Month Used,2nd Month Used",
+            "PI1,2023-09,500,200,0",
+            "PI2,2024-01,2000,0,0",
+            "PI3,2024-01,2000,1000,500",
+            "PI4,2024-02,1000,900,0",
+            "PI5,2024-02,1000,300,500",
+            "PI6,2024-02,1000,700,0",
+            "PI7,2024-03,500,300,0",  # This as current month we're testing, new PIs should get $500
+            "PI8,2024-04,1000,500,0",
+        ]
+        self.old_pi_df_answer = (
+            pandas.DataFrame(
+                {
+                    "PI": [
+                        "PI1",
+                        "PI2",
+                        "PI3",
+                        "PI4",
+                        "PI5",
+                        "PI6",
+                        "PI7",
+                        "NewPI1",
+                        "NewPI2",
+                        "PI8",
+                    ],
+                    "First Invoice Month": [
+                        "2023-09",
+                        "2024-01",
+                        "2024-01",
+                        "2024-02",
+                        "2024-02",
+                        "2024-02",
+                        "2024-03",
+                        "2024-03",
+                        "2024-03",
+                        "2024-04",
+                    ],
+                    "Initial Credits": [
+                        500,
+                        2000,
+                        2000,
+                        1000,
+                        1000,
+                        1000,
+                        500,
+                        500,
+                        500,
+                        1000,
+                    ],
+                    "1st Month Used": [200, 0, 1000, 900, 300, 700, 200, 500, 500, 500],
+                    "2nd Month Used": [0, 0, 500, 100, 400, 0, 0, 0, 0, 0],
+                }
+            )
+            .astype(
+                {
+                    "Initial Credits": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                    "1st Month Used": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                    "2nd Month Used": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                },
+            )
+            .sort_values(by="PI", ignore_index=True)
+        )
+
+        # Contains cases with new, one month old, two month old, older PI, and future PI that hasn't appeared in invoices yet
+        # For each invoice month, test case where pi has 1 project, >1, and has spare credit
+        old_pi_file = tempfile.NamedTemporaryFile(
+            delete=False, mode="w+", suffix=".csv"
+        )
         for pi in old_pi:
             old_pi_file.write(pi + "\n")
         self.old_pi_file = old_pi_file.name
 
+        self.dataframe_no_gpu = pandas.DataFrame(
+            {
+                "Invoice Month": [
+                    "2024-03",
+                    "2024-03",
+                    "2024-03",
+                    "2024-03",
+                    "2024-03",
+                ],
+                "Manager (PI)": ["PI1", "PI1", "PI1", "PI2", "PI2"],
+                "SU Type": [
+                    "GPU",
+                    "OpenShift GPUA100SXM4",
+                    "OpenStack GPUA100SXM4",
+                    "OpenShift GPUA100SXM4",
+                    "OpenStack GPUA100SXM4",
+                ],
+                "Cost": [500, 100, 100, 500, 500],
+            }
+        )
         old_pi_no_gpu = [
-            "OldPI,2024-03",
+            "PI,First Invoice Month,Initial Credits,1st Month Used,2nd Month Used",
+            "OldPI,2024-03,500,200,0",
         ]
         old_pi_no_gpu_file = tempfile.NamedTemporaryFile(
             delete=False, mode="w", suffix=".csv"
@@ -375,39 +558,19 @@ class TestCredit0002(TestCase):
         dataframe = process_report.apply_credits_new_pi(
             self.dataframe, self.old_pi_file
         )
+        dataframe = dataframe.astype({"Credit": "float64", "Balance": "int64"})
+        self.assertTrue(self.answer_dataframe.equals(dataframe))
 
-        self.assertTrue("Credit" in dataframe)
-        self.assertTrue("Credit Code" in dataframe)
-        self.assertTrue("Balance" in dataframe)
+        old_pi_df_output = pandas.read_csv(
+            self.old_pi_file,
+            dtype={
+                "Initial Credits": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                "1st Month Used": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                "2nd Month Used": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+            },
+        ).sort_values(by=["PI"], ignore_index=True)
 
-        non_credited_project = dataframe[pandas.isna(dataframe["Credit Code"])]
-        credited_projects = dataframe[dataframe["Credit Code"] == "0002"]
-
-        self.assertEqual(2, len(non_credited_project))
-        self.assertEqual(
-            non_credited_project.loc[2, "Cost"], non_credited_project.loc[2, "Balance"]
-        )
-        self.assertEqual(
-            non_credited_project.loc[3, "Cost"], non_credited_project.loc[3, "Balance"]
-        )
-
-        self.assertEqual(4, len(credited_projects.index))
-        self.assertTrue("PI2" not in credited_projects["Manager (PI)"].unique())
-        self.assertTrue("PI3" not in credited_projects["Manager (PI)"].unique())
-
-        self.assertEqual(10, credited_projects.loc[0, "Credit"])
-        self.assertEqual(100, credited_projects.loc[1, "Credit"])
-        self.assertEqual(800, credited_projects.loc[4, "Credit"])
-        self.assertEqual(200, credited_projects.loc[5, "Credit"])
-
-        self.assertEqual(0, credited_projects.loc[0, "Balance"])
-        self.assertEqual(0, credited_projects.loc[1, "Balance"])
-        self.assertEqual(0, credited_projects.loc[4, "Balance"])
-        self.assertEqual(800, credited_projects.loc[5, "Balance"])
-
-        updated_old_pi_answer = "PI2,2023-09\nPI3,2024-02\nPI4,2024-03\nPI1,2024-03\n"
-        with open(self.old_pi_file, "r") as f:
-            self.assertEqual(updated_old_pi_answer, f.read())
+        self.assertTrue(old_pi_df_output.equals(self.old_pi_df_answer))
 
     def test_no_gpu(self):
         dataframe = process_report.apply_credits_new_pi(
@@ -417,10 +580,12 @@ class TestCredit0002(TestCase):
         self.assertTrue(self.no_gpu_df_answer.equals(dataframe))
 
     def test_apply_credit_error(self):
-        old_pi_dict = {"PI1": "2024-12"}
+        old_pi_df = pandas.DataFrame(
+            {"PI": ["PI1"], "First Invoice Month": ["2024-04"]}
+        )
         invoice_month = "2024-03"
         with self.assertRaises(SystemExit):
-            process_report.is_old_pi(old_pi_dict, "PI1", invoice_month)
+            process_report.get_pi_age(old_pi_df, "PI1", invoice_month)
 
 
 class TestBUSubsidy(TestCase):
