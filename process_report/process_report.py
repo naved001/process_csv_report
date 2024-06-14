@@ -30,6 +30,7 @@ INSTITUTION_FIELD = "Institution"
 INSTITUTION_ID_FIELD = "Institution - Specific Code"
 SU_HOURS_FIELD = "SU Hours (GBhr or SUhr)"
 SU_TYPE_FIELD = "SU Type"
+RATE_FIELD = "Rate"
 COST_FIELD = "Cost"
 CREDIT_FIELD = "Credit"
 CREDIT_CODE_FIELD = "Credit Code"
@@ -327,7 +328,11 @@ def merge_csv(files):
     dataframes = []
     for file in files:
         dataframe = pandas.read_csv(
-            file, dtype={COST_FIELD: pandas.ArrowDtype(pyarrow.decimal128(12, 2))}
+            file,
+            dtype={
+                COST_FIELD: pandas.ArrowDtype(pyarrow.decimal128(12, 2)),
+                RATE_FIELD: str,
+            },
         )
         dataframes.append(dataframe)
 
