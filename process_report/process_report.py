@@ -45,8 +45,11 @@ ALIAS_S3_FILEPATH = "PIs/alias.csv"
 
 
 def get_institution_from_pi(institute_map, pi_uname):
-    institution_key = pi_uname.split("@")[-1]
-    institution_name = institute_map.get(institution_key, "")
+    institution_domain = pi_uname.split("@")[-1]
+    for i in range(institution_domain.count(".") + 1):
+        if institution_name := institute_map.get(institution_domain, ""):
+            break
+        institution_domain = institution_domain[institution_domain.find(".") + 1 :]
 
     if institution_name == "":
         print(f"Warning: PI name {pi_uname} does not match any institution!")

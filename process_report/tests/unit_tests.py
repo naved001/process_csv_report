@@ -229,34 +229,32 @@ class TestGetInstitute(TestCase):
             "bu.edu": "Boston University",
             "bentley.edu": "Bentley",
             "mclean.harvard.edu": "McLean Hospital",
+            "northeastern.edu": "Northeastern University",
+            "childrens.harvard.edu": "Boston Children's Hospital",
             "meei.harvard.edu": "Massachusetts Eye & Ear",
             "dfci.harvard.edu": "Dana-Farber Cancer Institute",
-            "northeastern.edu": "Northeastern University",
+            "bwh.harvard.edu": "Brigham and Women's Hospital",
+            "bidmc.harvard.edu": "Beth Israel Deaconess Medical Center",
         }
 
-        self.assertEqual(
-            process_report.get_institution_from_pi(institute_map, "quanmp@bu.edu"),
-            "Boston University",
-        )
-        self.assertEqual(
-            process_report.get_institution_from_pi(
-                institute_map, "c@mclean.harvard.edu"
-            ),
-            "McLean Hospital",
-        )
-        self.assertEqual(
-            process_report.get_institution_from_pi(institute_map, "b@harvard.edu"),
-            "Harvard University",
-        )
-        self.assertEqual(
-            process_report.get_institution_from_pi(institute_map, "fake"), ""
-        )
-        self.assertEqual(
-            process_report.get_institution_from_pi(
-                institute_map, "pi@northeastern.edu"
-            ),
-            "Northeastern University",
-        )
+        answers = {
+            "q@bu.edu": "Boston University",
+            "c@mclean.harvard.edu": "McLean Hospital",
+            "b@harvard.edu": "Harvard University",
+            "e@edu": "",
+            "pi@northeastern.edu": "Northeastern University",
+            "h@a.b.c.harvard.edu": "Harvard University",
+            "c@a.childrens.harvard.edu": "Boston Children's Hospital",
+            "d@a-b.meei.harvard.edu": "Massachusetts Eye & Ear",
+            "e@dfci.harvard": "",
+            "f@bwh.harvard.edu": "Brigham and Women's Hospital",
+            "g@bidmc.harvard.edu": "Beth Israel Deaconess Medical Center",
+        }
+
+        for pi_email, answer in answers.items():
+            self.assertEqual(
+                process_report.get_institution_from_pi(institute_map, pi_email), answer
+            )
 
 
 class TestAlias(TestCase):
