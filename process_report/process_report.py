@@ -479,8 +479,10 @@ def apply_credits_new_pi(dataframe, old_pi_file):
                     remaining_credit -= applied_credit
 
             credits_used = initial_credit - remaining_credit
-            if (pi_old_pi_entry[credit_used_field] != 0) and (
-                credits_used != pi_old_pi_entry[credit_used_field]
+            if (
+                not pandas.isna(pi_old_pi_entry[credit_used_field])
+                and pi_old_pi_entry[credit_used_field] != 0
+                and pi_old_pi_entry[credit_used_field] != credits_used
             ):
                 print(
                     f"Warning: PI file overwritten. PI {pi} previously used ${pi_old_pi_entry[credit_used_field]} of New PI credits, now uses ${credits_used}"
