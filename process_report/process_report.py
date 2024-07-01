@@ -558,7 +558,7 @@ def export_pi_billables(dataframe: pandas.DataFrame, output_folder, invoice_mont
         pi_projects = dataframe[dataframe[PI_FIELD] == pi]
         pi_instituition = pi_projects[INSTITUTION_FIELD].iat[0]
         pi_projects.to_csv(
-            output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv"
+            output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv", index=False
         )
 
 
@@ -596,7 +596,7 @@ def export_BU_only(dataframe: pandas.DataFrame, output_file, subsidy_amount):
         BU_projects_no_dup.loc[no_dup_project_mask, sum_fields] = sum_fields_sums
 
     BU_projects_no_dup = _apply_subsidy(BU_projects_no_dup, subsidy_amount)
-    BU_projects_no_dup.to_csv(output_file)
+    BU_projects_no_dup.to_csv(output_file, index=False)
 
 
 def _apply_subsidy(dataframe, subsidy_amount):
@@ -624,7 +624,7 @@ def export_HU_BU(dataframe, output_file):
         (dataframe[INSTITUTION_FIELD] == "Harvard University")
         | (dataframe[INSTITUTION_FIELD] == "Boston University")
     ]
-    HU_BU_projects.to_csv(output_file)
+    HU_BU_projects.to_csv(output_file, index=False)
 
 
 def upload_to_s3(invoice_list: list, invoice_month):
