@@ -154,7 +154,7 @@ def main():
     parser.add_argument(
         "--output-file",
         required=False,
-        default="filtered_output",
+        default="billable",
         help="Name of output file",
     )
     parser.add_argument(
@@ -282,7 +282,6 @@ def main():
 
         upload_to_s3(invoice_list, invoice_month)
         upload_to_s3_HU_BU(args.HU_BU_invoice_file, invoice_month)
-        upload_to_s3_old_pi_file(old_pi_file)
 
 
 def fetch_s3_invoices(invoice_month):
@@ -363,11 +362,6 @@ def fetch_s3_old_pi_file():
     invoice_bucket = get_invoice_bucket()
     invoice_bucket.download_file(PI_S3_FILEPATH, local_name)
     return local_name
-
-
-def upload_to_s3_old_pi_file(old_pi_file):
-    invoice_bucket = get_invoice_bucket()
-    invoice_bucket.upload_file(old_pi_file, PI_S3_FILEPATH)
 
 
 def backup_to_s3_old_pi_file(old_pi_file):

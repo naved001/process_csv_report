@@ -5,6 +5,7 @@ import pyarrow
 import os
 import uuid
 import math
+from decimal import Decimal
 from textwrap import dedent
 
 from process_report import process_report, util
@@ -416,6 +417,9 @@ class TestCredit0002(TestCase):
             "Balance": [10, 100, 10000, 400, 100, 0, 0, 0, 0, 200, 700],
         }
         self.dataframe = pandas.DataFrame(data)
+        self.dataframe["Credit"] = None
+        self.dataframe["Credit Code"] = None
+        self.dataframe["Balance"] = Decimal(0)
         self.answer_dataframe = pandas.DataFrame(answer_df_dict)
         old_pi = [
             "PI,First Invoice Month,Initial Credits,1st Month Used,2nd Month Used",
@@ -510,6 +514,9 @@ class TestCredit0002(TestCase):
                 "Cost": [500, 100, 100, 500, 500],
             }
         )
+        self.dataframe_no_gpu["Credit"] = None
+        self.dataframe_no_gpu["Credit Code"] = None
+        self.dataframe_no_gpu["Balance"] = Decimal(0)
         old_pi_no_gpu = [
             "PI,First Invoice Month,Initial Credits,1st Month Used,2nd Month Used",
             "OldPI,2024-03,500,200,0",
@@ -549,18 +556,24 @@ class TestCredit0002(TestCase):
         os.remove(self.old_pi_no_gpu_file)
 
     def test_apply_credit_0002(self):
-        test_invoice = test_utils.new_billable_invoice()
+        test_invoice = test_utils.new_billable_invoice(invoice_month="2024-03")
         old_pi_df = test_invoice._load_old_pis(self.old_pi_file)
         dataframe, updated_old_pi_df = test_invoice._apply_credits_new_pi(
             self.dataframe, old_pi_df
         )
         dataframe = dataframe.astype({"Credit": "float64", "Balance": "int64"})
-        updated_old_pi_df = updated_old_pi_df.sort_values(by="PI", ignore_index=True)
+        updated_old_pi_df = updated_old_pi_df.astype(
+            dtype={
+                "Initial Credits": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                "1st Month Used": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+                "2nd Month Used": pandas.ArrowDtype(pyarrow.decimal128(21, 2)),
+            },
+        ).sort_values(by=["PI"], ignore_index=True)
         self.assertTrue(self.answer_dataframe.equals(dataframe))
         self.assertTrue(self.old_pi_df_answer.equals(updated_old_pi_df))
 
     def test_no_gpu(self):
-        test_invoice = test_utils.new_billable_invoice()
+        test_invoice = test_utils.new_billable_invoice(invoice_month="2024-03")
         old_pi_df = test_invoice._load_old_pis(self.old_pi_no_gpu_file)
         dataframe, _ = test_invoice._apply_credits_new_pi(
             self.dataframe_no_gpu, old_pi_df
