@@ -7,6 +7,10 @@ The processing script `process_report.py` takes in the monthly invoices and goes
 4. Apply the New PI credit (more info below)
 5. Exports the billable projects as one csv, by PI, for HU PIs only, for HU and BU PIs, and for projects with Lenovo SU Types
 
+The flowchart below summarizes the invoices being created and their dependencies:
+
+![invoice flowchart](invoice_flowchart.jpg)
+
 The CSV invoices must at least contain the following headers:
 - Invoice Month
 - Project - Allocation
