@@ -2,10 +2,16 @@
 
 The processing script `process_report.py` takes in the monthly invoices and goes through several processing and exporting steps:
 1. Combines all provided invoices (more info below)
-2. Obtain each PI's institution name
-3. Exports the list of non-billable projects (more info below)
-4. Apply the New PI credit (more info below)
-5. Exports the billable projects as one csv, by PI, for HU PIs only, for HU and BU PIs, and for projects with Lenovo SU Types
+2. Check for PI aliases in invoices
+3. Obtain each PI's institution name
+4. Exports the non-billable invoice (more info below) and Lenovo invoice
+5. Apply the New PI credit (more info below)
+6. Exports the billable invoice
+7. Export the HU-BU invoice, PI-specific invoice, and the BU Internal invoice which applies the BU subsidy
+
+The flowchart below summarizes the invoices being created and their dependencies:
+
+![invoice flowchart](invoice_flowchart.jpg)
 
 The CSV invoices must at least contain the following headers:
 - Invoice Month
@@ -17,12 +23,14 @@ The CSV invoices must at least contain the following headers:
 - Cost
 
 ```
-usage: process_report.py [-h] --pi-file PI_FILE --projects-file PROJECTS_FILE --timed-projects-file TIMED_PROJECTS_FILE [--output-file OUTPUT_FILE]
-                         [--output-folder OUTPUT_FOLDER] [--HU-invoice-file HU_INVOICE_FILE] [--HU-BU-invoice-file HU_BU_INVOICE_FILE] [--old-pi-file OLD_PI_FILE]
-                         csv_files [csv_files ...]
-process_report.py: error: the following arguments are required: csv_files, --pi-file, --projects-file, --timed-projects-file
+usage: process_report.py [-h] [--fetch-from-s3] [--upload-to-s3] --invoice-month INVOICE_MONTH --pi-file PI_FILE --projects-file PROJECTS_FILE --timed-projects-file
+                         TIMED_PROJECTS_FILE [--nonbillable-file NONBILLABLE_FILE] [--output-file OUTPUT_FILE] [--output-folder OUTPUT_FOLDER]
+                         [--BU-invoice-file BU_INVOICE_FILE] [--HU-BU-invoice-file HU_BU_INVOICE_FILE] [--Lenovo-file LENOVO_FILE] [--old-pi-file OLD_PI_FILE]
+                         [--alias-file ALIAS_FILE] --BU-subsidy-amount BU_SUBSIDY_AMOUNT
+                         [csv_files ...]
+process_report.py: error: the following arguments are required: --invoice-month, --pi-file, --projects-file, --timed-projects-file, --BU-subsidy-amount
 
-E.g. python process_report.py test1.csv test2.csv --pi-file pi.txt --projects-file projects.txt --timed-projects-file timed_projects.txt --output-file myfile.csv
+E.g. python process_report.py test1.csv test2.csv --invoice-month 2024-02 --pi-file pi.txt --projects-file projects.txt --timed-projects-file timed_projects.txt --BU-subsidy-amount 100
 ```
 
 ## New PI Credit
