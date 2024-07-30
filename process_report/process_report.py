@@ -2,13 +2,12 @@ import argparse
 import os
 import sys
 import datetime
-import functools
 
 import json
 import pandas
-import boto3
 import pyarrow
 
+from process_report.util import get_invoice_bucket, process_and_export_invoices
 from process_report.invoices import (
     lenovo_invoice,
     nonbillable_invoice,
@@ -85,22 +84,6 @@ def load_alias(alias_file):
         sys.exit(1)
 
     return alias_dict
-
-
-@functools.lru_cache
-def get_invoice_bucket():
-    try:
-        s3_resource = boto3.resource(
-            service_name="s3",
-            endpoint_url=os.environ.get(
-                "S3_ENDPOINT", "https://s3.us-east-005.backblazeb2.com"
-            ),
-            aws_access_key_id=os.environ["S3_KEY_ID"],
-            aws_secret_access_key=os.environ["S3_APP_KEY"],
-        )
-    except KeyError:
-        print("Error: Please set the environment variables S3_KEY_ID and S3_APP_KEY")
-    return s3_resource.Bucket(os.environ.get("S3_BUCKET_NAME", "nerc-invoicing"))
 
 
 def get_iso8601_time():
@@ -249,12 +232,6 @@ def main():
         nonbillable_pis=pi,
         nonbillable_projects=projects,
     )
-    for invoice in [lenovo_inv, nonbillable_inv]:
-        invoice.process()
-        invoice.export()
-        if args.upload_to_s3:
-            bucket = get_invoice_bucket()
-            invoice.export_s3(bucket)
 
     if args.upload_to_s3:
         backup_to_s3_old_pi_file(old_pi_file)
@@ -267,35 +244,27 @@ def main():
         nonbillable_projects=projects,
         old_pi_filepath=old_pi_file,
     )
-    billable_inv.process()
-    billable_inv.export()
+
+    process_and_export_invoices(
+        [lenovo_inv, nonbillable_inv, billable_inv], args.upload_to_s3
+    )
 
     nerc_total_inv = NERC_total_invoice.NERCTotalInvoice(
         name=args.NERC_total_invoice_file,
         invoice_month=invoice_month,
-        data=billable_inv.data,
+        data=billable_inv.data.copy(),
     )
-    nerc_total_inv.process()
-    nerc_total_inv.export()
-
-    if args.upload_to_s3:
-        for invoice in [billable_inv, nerc_total_inv]:
-            bucket = get_invoice_bucket()
-            invoice.export_s3(bucket)
 
     bu_internal_inv = bu_internal_invoice.BUInternalInvoice(
         name=args.BU_invoice_file,
         invoice_month=invoice_month,
-        data=billable_inv.data,
+        data=billable_inv.data.copy(),
         subsidy_amount=args.BU_subsidy_amount,
     )
-    bu_internal_inv.process()
-    bu_internal_inv.export()
-    if args.upload_to_s3:
-        bucket = get_invoice_bucket()
-        bu_internal_inv.export_s3(bucket)
 
-    export_pi_billables(billable_inv.data, args.output_folder, invoice_month)
+    process_and_export_invoices([nerc_total_inv, bu_internal_inv], args.upload_to_s3)
+
+    export_pi_billables(billable_inv.data.copy(), args.output_folder, invoice_month)
 
     if args.upload_to_s3:
         invoice_list = list()
