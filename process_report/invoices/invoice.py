@@ -79,7 +79,7 @@ class Invoice:
         pass
 
     def export(self):
-        self.data.to_csv(self.output_path)
+        self.data.to_csv(self.output_path, index=False)
 
     def export_s3(self, s3_bucket):
         s3_bucket.upload_file(self.output_path, self.output_s3_key)
