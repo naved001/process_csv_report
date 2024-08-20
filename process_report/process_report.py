@@ -173,9 +173,9 @@ def main():
         help="Name of output csv for BU invoices",
     )
     parser.add_argument(
-        "--HU-BU-invoice-file",
+        "--NERC-total-invoice-file",
         required=False,
-        default="HU_BU",
+        default="NERC",
         help="Name of output csv for HU and BU invoice",
     )
     parser.add_argument(
@@ -271,7 +271,7 @@ def main():
     billable_inv.export()
 
     hu_bu_inv = hu_bu_invoice.HUBUInvoice(
-        name=args.HU_BU_invoice_file,
+        name=args.NERC_total_invoice_file,
         invoice_month=invoice_month,
         data=billable_inv.data,
     )
