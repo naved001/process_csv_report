@@ -9,6 +9,7 @@ class NERCTotalInvoice(invoice.Invoice):
     INCLUDED_INSTITUTIONS = [
         "Harvard University",
         "Boston University",
+        "University of Rhode Island",
     ]
 
     @property

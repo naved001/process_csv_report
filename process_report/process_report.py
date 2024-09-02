@@ -14,7 +14,7 @@ from process_report.invoices import (
     lenovo_invoice,
     nonbillable_invoice,
     billable_invoice,
-    hu_bu_invoice,
+    NERC_total_invoice,
 )
 
 
@@ -270,16 +270,16 @@ def main():
     billable_inv.process()
     billable_inv.export()
 
-    hu_bu_inv = hu_bu_invoice.HUBUInvoice(
+    nerc_total_inv = NERC_total_invoice.NERCTotalInvoice(
         name=args.NERC_total_invoice_file,
         invoice_month=invoice_month,
         data=billable_inv.data,
     )
-    hu_bu_inv.process()
-    hu_bu_inv.export()
+    nerc_total_inv.process()
+    nerc_total_inv.export()
 
     if args.upload_to_s3:
-        for invoice in [billable_inv, hu_bu_inv]:
+        for invoice in [billable_inv, nerc_total_inv]:
             bucket = get_invoice_bucket()
             invoice.export_s3(bucket)
 
