@@ -5,7 +5,17 @@ import process_report.util as util
 
 
 @dataclass
-class HUBUInvoice(invoice.Invoice):
+class NERCTotalInvoice(invoice.Invoice):
+    INCLUDED_INSTITUTIONS = [
+        "Harvard University",
+        "Boston University",
+        "University of Rhode Island",
+    ]
+
+    @property
+    def output_path(self) -> str:
+        return f"NERC-{self.invoice_month}-Total-Invoice.csv"
+
     @property
     def output_s3_key(self) -> str:
         return (
@@ -18,6 +28,5 @@ class HUBUInvoice(invoice.Invoice):
 
     def _prepare_export(self):
         self.data = self.data[
-            (self.data[invoice.INSTITUTION_FIELD] == "Harvard University")
-            | (self.data[invoice.INSTITUTION_FIELD] == "Boston University")
+            self.data[invoice.INSTITUTION_FIELD].isin(self.INCLUDED_INSTITUTIONS)
         ].copy()
