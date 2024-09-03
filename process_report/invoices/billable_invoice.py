@@ -110,7 +110,7 @@ class BillableInvoice(invoice.Invoice):
 
     def export(self):
         super().export()
-        self.old_pi_df.to_csv(self.old_pi_filepath, index=False)
+        self.updated_old_pi_df.to_csv(self.old_pi_filepath, index=False)
 
     def export_s3(self, s3_bucket):
         super().export_s3(s3_bucket)
