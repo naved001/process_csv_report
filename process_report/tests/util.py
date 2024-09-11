@@ -23,6 +23,7 @@ def new_billable_invoice(
     nonbillable_pis=[],
     nonbillable_projects=[],
     old_pi_filepath="",
+    limit_new_pi_credit_to_partners=False,
 ):
     return billable_invoice.BillableInvoice(
         name,
@@ -31,6 +32,7 @@ def new_billable_invoice(
         nonbillable_pis,
         nonbillable_projects,
         old_pi_filepath,
+        limit_new_pi_credit_to_partners,
     )
 
 

@@ -833,3 +833,38 @@ class TestUploadToS3(TestCase):
 
         for i, call_args in enumerate(mock_bucket.upload_file.call_args_list):
             self.assertTrue(answers[i] in call_args)
+
+
+class TestNERCRates(TestCase):
+    @mock.patch("process_report.util.load_institute_list")
+    def test_flag_limit_new_pi_credit(self, mock_load_institute_list):
+        mock_load_institute_list.return_value = [
+            {"display_name": "BU", "mghpcc_partnership_start_date": "2024-02"},
+            {"display_name": "HU", "mghpcc_partnership_start_date": "2024-6"},
+            {"display_name": "NEU", "mghpcc_partnership_start_date": "2024-11"},
+        ]
+        sample_df = pandas.DataFrame(
+            {
+                "Institution": ["BU", "HU", "NEU", "MIT", "BC"],
+            }
+        )
+        sample_inv = test_utils.new_billable_invoice(
+            limit_new_pi_credit_to_partners=True
+        )
+
+        # When no partnerships are active
+        sample_inv.invoice_month = "2024-01"
+        output_df = sample_inv._filter_partners(sample_df)
+        self.assertTrue(output_df.empty)
+
+        # When some partnerships are active
+        sample_inv.invoice_month = "2024-06"
+        output_df = sample_inv._filter_partners(sample_df)
+        answer_df = pandas.DataFrame({"Institution": ["BU", "HU"]})
+        self.assertTrue(output_df.equals(answer_df))
+
+        # When all partnerships are active
+        sample_inv.invoice_month = "2024-12"
+        output_df = sample_inv._filter_partners(sample_df)
+        answer_df = pandas.DataFrame({"Institution": ["BU", "HU", "NEU"]})
+        self.assertTrue(output_df.equals(answer_df))

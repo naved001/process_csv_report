@@ -4,6 +4,7 @@ import datetime
 
 import pandas
 import pyarrow
+from nerc_rates import load_from_url
 
 from process_report import util
 from process_report.invoices import (
@@ -215,6 +216,7 @@ def main():
     if args.upload_to_s3:
         backup_to_s3_old_pi_file(old_pi_file)
 
+    rates_info = load_from_url()
     billable_inv = billable_invoice.BillableInvoice(
         name=args.output_file,
         invoice_month=invoice_month,
@@ -222,6 +224,9 @@ def main():
         nonbillable_pis=pi,
         nonbillable_projects=projects,
         old_pi_filepath=old_pi_file,
+        limit_new_pi_credit_to_partners=rates_info.get_value_at(
+            "Limit New PI Credit to MGHPCC Partners", invoice_month
+        ),
     )
 
     util.process_and_export_invoices(

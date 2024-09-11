@@ -23,6 +23,7 @@ class BillableInvoice(discount_invoice.DiscountInvoice):
     nonbillable_pis: list[str]
     nonbillable_projects: list[str]
     old_pi_filepath: str
+    limit_new_pi_credit_to_partners: bool = False
 
     @staticmethod
     def _load_old_pis(old_pi_filepath) -> pandas.DataFrame:
@@ -115,6 +116,28 @@ class BillableInvoice(discount_invoice.DiscountInvoice):
         super().export_s3(s3_bucket)
         s3_bucket.upload_file(self.old_pi_filepath, self.PI_S3_FILEPATH)
 
+    def _filter_partners(self, data):
+        active_partnerships = list()
+        institute_list = util.load_institute_list()
+        for institute_info in institute_list:
+            if partnership_start_date := institute_info.get(
+                "mghpcc_partnership_start_date"
+            ):
+                if util.get_month_diff(self.invoice_month, partnership_start_date) >= 0:
+                    active_partnerships.append(institute_info["display_name"])
+
+        return data[data[invoice.INSTITUTION_FIELD].isin(active_partnerships)]
+
+    def _filter_excluded_su_types(self, data):
+        return data[~(data[invoice.SU_TYPE_FIELD].isin(self.EXCLUDE_SU_TYPES))]
+
+    def _get_credit_eligible_projects(self, data: pandas.DataFrame):
+        filtered_data = self._filter_excluded_su_types(data)
+        if self.limit_new_pi_credit_to_partners:
+            filtered_data = self._filter_partners(filtered_data)
+
+        return filtered_data
+
     def _apply_credits_new_pi(
         self, data: pandas.DataFrame, old_pi_df: pandas.DataFrame
     ):
@@ -140,11 +163,11 @@ class BillableInvoice(discount_invoice.DiscountInvoice):
         )
         print(f"New PI Credit set at {new_pi_credit_amount} for {self.invoice_month}")
 
-        current_pi_set = set(data[invoice.PI_FIELD])
+        credit_eligible_projects = self._get_credit_eligible_projects(data)
+        current_pi_set = set(credit_eligible_projects[invoice.PI_FIELD])
         for pi in current_pi_set:
-            credit_eligible_projects = data[
-                (data[invoice.PI_FIELD] == pi)
-                & ~(data[invoice.SU_TYPE_FIELD].isin(self.EXCLUDE_SU_TYPES))
+            pi_projects = credit_eligible_projects[
+                credit_eligible_projects[invoice.PI_FIELD] == pi
             ]
             pi_age = self._get_pi_age(old_pi_df, pi, self.invoice_month)
             pi_old_pi_entry = old_pi_df.loc[
@@ -152,7 +175,7 @@ class BillableInvoice(discount_invoice.DiscountInvoice):
             ].squeeze()
 
             if pi_age > 1:
-                for i, row in credit_eligible_projects.iterrows():
+                for i, row in pi_projects.iterrows():
                     data.at[i, invoice.BALANCE_FIELD] = row[invoice.COST_FIELD]
             else:
                 if pi_age == 0:
@@ -180,7 +203,7 @@ class BillableInvoice(discount_invoice.DiscountInvoice):
 
                 credits_used = self.apply_flat_discount(
                     data,
-                    credit_eligible_projects,
+                    pi_projects,
                     remaining_credit,
                     invoice.CREDIT_FIELD,
                     invoice.BALANCE_FIELD,
