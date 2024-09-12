@@ -250,7 +250,7 @@ class TestGetInstitute(TestCase):
 
         for pi_email, answer in answers.items():
             self.assertEqual(
-                process_report.get_institution_from_pi(institute_map, pi_email), answer
+                util.get_institution_from_pi(institute_map, pi_email), answer
             )
 
 
@@ -789,7 +789,7 @@ class TestExportLenovo(TestCase):
 
 
 class TestUploadToS3(TestCase):
-    @mock.patch("process_report.process_report.get_invoice_bucket")
+    @mock.patch("process_report.util.get_invoice_bucket")
     @mock.patch("process_report.util.get_iso8601_time")
     def test_upload_to_s3(self, mock_get_time, mock_get_bucket):
         mock_bucket = mock.MagicMock()
