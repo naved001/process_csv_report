@@ -32,6 +32,7 @@ BALANCE_FIELD = "Balance"
 
 ### Invoice additional fields (not used in exporting)
 PI_BALANCE_FIELD = "PI Balance"
+BU_BALANCE_FIELD = "BU Balance"
 ###
 
 

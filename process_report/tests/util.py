@@ -7,16 +7,8 @@ from process_report.processors import (
     remove_nonbillables_processor,
     validate_billable_pi_processor,
     new_pi_credit_processor,
+    bu_subsidy_processor,
 )
-from process_report.invoices import bu_internal_invoice
-
-
-def new_bu_internal_invoice(
-    name="", invoice_month="0000-00", data=pandas.DataFrame(), subsidy_amount=0
-):
-    return bu_internal_invoice.BUInternalInvoice(
-        name, invoice_month, data, subsidy_amount
-    )
 
 
 def new_add_institution_processor(
@@ -67,4 +59,15 @@ def new_new_pi_credit_processor(
 ):
     return new_pi_credit_processor.NewPICreditProcessor(
         name, invoice_month, data, old_pi_filepath
+    )
+
+
+def new_bu_subsidy_processor(
+    name="",
+    invoice_month="0000-00",
+    data=pandas.DataFrame(),
+    subsidy_amount="",
+):
+    return bu_subsidy_processor.BUSubsidyProcessor(
+        name, invoice_month, data, subsidy_amount
     )

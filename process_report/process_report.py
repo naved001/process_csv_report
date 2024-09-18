@@ -21,6 +21,7 @@ from process_report.processors import (
     remove_nonbillables_processor,
     validate_billable_pi_processor,
     new_pi_credit_processor,
+    bu_subsidy_processor,
 )
 
 ### PI file field names
@@ -258,6 +259,11 @@ def main():
     )
     new_pi_credit_proc.process()
 
+    bu_subsidy_proc = bu_subsidy_processor.BUSubsidyProcessor(
+        "", invoice_month, new_pi_credit_proc.data.copy(), args.BU_subsidy_amount
+    )
+    bu_subsidy_proc.process()
+
     ### Initialize invoices
 
     if args.upload_to_s3:
@@ -278,13 +284,13 @@ def main():
     nerc_total_inv = NERC_total_invoice.NERCTotalInvoice(
         name=args.NERC_total_invoice_file,
         invoice_month=invoice_month,
-        data=billable_inv.data.copy(),
+        data=new_pi_credit_proc.data.copy(),
     )
 
     bu_internal_inv = bu_internal_invoice.BUInternalInvoice(
         name=args.BU_invoice_file,
         invoice_month=invoice_month,
-        data=billable_inv.data.copy(),
+        data=bu_subsidy_proc.data.copy(),
         subsidy_amount=args.BU_subsidy_amount,
     )
 

@@ -25,12 +25,15 @@ class DiscountProcessor(processor.Processor):
         will change the provided `invoice` Dataframe directly. Therefore, it does
         not return the changed invoice.
 
-        This function assumes that the balance field shows the remaining cost of the project,
+        This function assumes that the PI balance field shows the remaining cost of the project,
         or what the PI would pay before the flat discount is applied.
 
         If the optional parameters `code_field` and `discount_code` are passed in,
         `discount_code` will be comma-APPENDED to the `code_field` of projects where
         the discount is applied
+
+        If `IS_DISCOUNT_BY_NERC` is true, the discount will be reflected in the
+        MGHPCC Balance field.
 
         Returns the amount of discount used.
 
@@ -39,17 +42,18 @@ class DiscountProcessor(processor.Processor):
         :param pi_balance_field: Name of the field of the PI balance
         :param discount_amount: The discount given to the PI
         :param discount_field: Name of the field to put the discount amount applied to each project
-        :param balance_field: Name of the NERC balance field
+        :param balance_field: Name of the MGHPCC balance field
         :param code_field: Name of the discount code field
         :param discount_code: Code of the discount
         """
 
         def apply_discount_on_project(remaining_discount_amount, project_i, project):
-            remaining_project_balance = project[balance_field]
+            remaining_project_balance = project[pi_balance_field]
             applied_discount = min(remaining_project_balance, remaining_discount_amount)
             invoice.at[project_i, discount_field] = applied_discount
+            pi_balance_after_discount = project[pi_balance_field] - applied_discount
             balance_after_discount = project[balance_field] - applied_discount
-            invoice.at[project_i, pi_balance_field] = balance_after_discount
+            invoice.at[project_i, pi_balance_field] = pi_balance_after_discount
             if self.IS_DISCOUNT_BY_NERC:
                 invoice.at[project_i, balance_field] = balance_after_discount
             remaining_discount_amount -= applied_discount

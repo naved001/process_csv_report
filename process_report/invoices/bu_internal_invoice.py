@@ -1,27 +1,13 @@
 from dataclasses import dataclass
-from decimal import Decimal
 
-import process_report.invoices.invoice as invoice
-import process_report.invoices.discount_invoice as discount_invoice
+from process_report.invoices import invoice
 
 
 @dataclass
-class BUInternalInvoice(discount_invoice.DiscountInvoice):
+class BUInternalInvoice(invoice.Invoice):
     subsidy_amount: int
 
-    def _prepare(self):
-        def get_project(row):
-            project_alloc = row[invoice.PROJECT_FIELD]
-            if project_alloc.rfind("-") == -1:
-                return project_alloc
-            else:
-                return project_alloc[: project_alloc.rfind("-")]
-
-        self.data = self.data[
-            self.data[invoice.INSTITUTION_FIELD] == "Boston University"
-        ].copy()
-        self.data["Project"] = self.data.apply(get_project, axis=1)
-        self.data[invoice.SUBSIDY_FIELD] = Decimal(0)
+    def _prepare_export(self):
         self.data = self.data[
             [
                 invoice.INVOICE_DATE_FIELD,
@@ -29,14 +15,12 @@ class BUInternalInvoice(discount_invoice.DiscountInvoice):
                 "Project",
                 invoice.COST_FIELD,
                 invoice.CREDIT_FIELD,
-                invoice.SUBSIDY_FIELD,
+                invoice.BU_BALANCE_FIELD,
                 invoice.BALANCE_FIELD,
             ]
         ]
 
-    def _process(self):
-        data_summed_projects = self._sum_project_allocations(self.data)
-        self.data = self._apply_subsidy(data_summed_projects, self.subsidy_amount)
+        self.data = self._sum_project_allocations(self.data)
 
     def _sum_project_allocations(self, dataframe):
         """A project may have multiple allocations, and therefore multiple rows
@@ -53,18 +37,3 @@ class BUInternalInvoice(discount_invoice.DiscountInvoice):
             data_no_dup.loc[no_dup_project_mask, sum_fields] = sum_fields_sums
 
         return data_no_dup
-
-    def _apply_subsidy(self, dataframe, subsidy_amount):
-        pi_list = dataframe[invoice.PI_FIELD].unique()
-
-        for pi in pi_list:
-            pi_projects = dataframe[dataframe[invoice.PI_FIELD] == pi]
-            self.apply_flat_discount(
-                dataframe,
-                pi_projects,
-                subsidy_amount,
-                invoice.SUBSIDY_FIELD,
-                invoice.BALANCE_FIELD,
-            )
-
-        return dataframe
