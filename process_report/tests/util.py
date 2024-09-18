@@ -6,22 +6,9 @@ from process_report.processors import (
     lenovo_processor,
     remove_nonbillables_processor,
     validate_billable_pi_processor,
+    new_pi_credit_processor,
 )
-from process_report.invoices import billable_invoice, bu_internal_invoice
-
-
-def new_billable_invoice(
-    name="",
-    invoice_month="0000-00",
-    data=pandas.DataFrame(),
-    old_pi_filepath="",
-):
-    return billable_invoice.BillableInvoice(
-        name,
-        invoice_month,
-        data,
-        old_pi_filepath,
-    )
+from process_report.invoices import bu_internal_invoice
 
 
 def new_bu_internal_invoice(
@@ -69,4 +56,15 @@ def new_validate_billable_pi_processor(
 ):
     return validate_billable_pi_processor.ValidateBillablePIsProcessor(
         name, invoice_month, data
+    )
+
+
+def new_new_pi_credit_processor(
+    name="",
+    invoice_month="0000-00",
+    data=pandas.DataFrame(),
+    old_pi_filepath="",
+):
+    return new_pi_credit_processor.NewPICreditProcessor(
+        name, invoice_month, data, old_pi_filepath
     )

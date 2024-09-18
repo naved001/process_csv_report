@@ -14,6 +14,7 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
     NEW_PI_CREDIT_CODE = "0002"
     INITIAL_CREDIT_AMOUNT = 1000
     EXCLUDE_SU_TYPES = ["OpenShift GPUA100SXM4", "OpenStack GPUA100SXM4"]
+    IS_DISCOUNT_BY_NERC = True
 
     old_pi_filepath: str
 
@@ -99,8 +100,8 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
                         pi_entry = [pi, self.invoice_month, new_pi_credit_amount, 0, 0]
                         old_pi_df = pandas.concat(
                             [
-                                pandas.DataFrame([pi_entry], columns=old_pi_df.columns),
                                 old_pi_df,
+                                pandas.DataFrame([pi_entry], columns=old_pi_df.columns),
                             ],
                             ignore_index=True,
                         )
@@ -120,6 +121,7 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
                 credits_used = self.apply_flat_discount(
                     data,
                     credit_eligible_projects,
+                    invoice.PI_BALANCE_FIELD,
                     remaining_credit,
                     invoice.CREDIT_FIELD,
                     invoice.BALANCE_FIELD,
@@ -142,6 +144,7 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
     def _prepare(self):
         self.data[invoice.CREDIT_FIELD] = None
         self.data[invoice.CREDIT_CODE_FIELD] = None
+        self.data[invoice.PI_BALANCE_FIELD] = self.data[invoice.COST_FIELD]
         self.data[invoice.BALANCE_FIELD] = self.data[invoice.COST_FIELD]
         self.old_pi_df = self._load_old_pis(self.old_pi_filepath)
 

@@ -20,6 +20,7 @@ from process_report.processors import (
     lenovo_processor,
     remove_nonbillables_processor,
     validate_billable_pi_processor,
+    new_pi_credit_processor,
 )
 
 ### PI file field names
@@ -235,7 +236,7 @@ def main():
         nonbillable_projects=projects,
     )
 
-    ### Remove nonbillables
+    ### Perform main processing
 
     remove_nonbillables_proc = remove_nonbillables_processor.RemoveNonbillables(
         "", invoice_month, add_institute_proc.data, pi, projects
@@ -249,6 +250,14 @@ def main():
     )
     validate_billable_pi_proc.process()
 
+    new_pi_credit_proc = new_pi_credit_processor.NewPICreditProcessor(
+        "",
+        invoice_month,
+        data=validate_billable_pi_proc.data,
+        old_pi_filepath=old_pi_file,
+    )
+    new_pi_credit_proc.process()
+
     ### Initialize invoices
 
     if args.upload_to_s3:
@@ -257,8 +266,9 @@ def main():
     billable_inv = billable_invoice.BillableInvoice(
         name=args.output_file,
         invoice_month=invoice_month,
-        data=validate_billable_pi_proc.data.copy(),
+        data=new_pi_credit_proc.data,
         old_pi_filepath=old_pi_file,
+        updated_old_pi_df=new_pi_credit_proc.updated_old_pi_df,
     )
 
     process_and_export_invoices(

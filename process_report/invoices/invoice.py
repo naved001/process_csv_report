@@ -30,6 +30,10 @@ SUBSIDY_FIELD = "Subsidy"
 BALANCE_FIELD = "Balance"
 ###
 
+### Invoice additional fields (not used in exporting)
+PI_BALANCE_FIELD = "PI Balance"
+###
+
 
 @dataclass
 class Invoice:
