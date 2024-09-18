@@ -11,9 +11,15 @@ from process_report.processors import discount_processor
 
 @dataclass
 class NewPICreditProcessor(discount_processor.DiscountProcessor):
+    """
+    This processor operates on data processed by these Processors:
+    - ValidateBillablePIsProcessor
+    """
+
     NEW_PI_CREDIT_CODE = "0002"
     INITIAL_CREDIT_AMOUNT = 1000
     EXCLUDE_SU_TYPES = ["OpenShift GPUA100SXM4", "OpenStack GPUA100SXM4"]
+    IS_DISCOUNT_BY_NERC = True
 
     old_pi_filepath: str
     limit_new_pi_credit_to_partners: bool = False
@@ -70,8 +76,16 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
     def _filter_excluded_su_types(self, data):
         return data[~(data[invoice.SU_TYPE_FIELD].isin(self.EXCLUDE_SU_TYPES))]
 
+    def _filter_nonbillables(self, data):
+        return data[data["Is Billable"]]
+
+    def _filter_missing_pis(self, data):
+        return data[~data["Missing PI"]]
+
     def _get_credit_eligible_projects(self, data: pandas.DataFrame):
-        filtered_data = self._filter_excluded_su_types(data)
+        filtered_data = self._filter_nonbillables(data)
+        filtered_data = self._filter_missing_pis(filtered_data)
+        filtered_data = self._filter_excluded_su_types(filtered_data)
         if self.limit_new_pi_credit_to_partners:
             filtered_data = self._filter_partners(filtered_data)
 
@@ -143,6 +157,7 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
                 credits_used = self.apply_flat_discount(
                     data,
                     pi_projects,
+                    invoice.PI_BALANCE_FIELD,
                     remaining_credit,
                     invoice.CREDIT_FIELD,
                     invoice.BALANCE_FIELD,
@@ -165,6 +180,7 @@ class NewPICreditProcessor(discount_processor.DiscountProcessor):
     def _prepare(self):
         self.data[invoice.CREDIT_FIELD] = None
         self.data[invoice.CREDIT_CODE_FIELD] = None
+        self.data[invoice.PI_BALANCE_FIELD] = self.data[invoice.COST_FIELD]
         self.data[invoice.BALANCE_FIELD] = self.data[invoice.COST_FIELD]
         self.old_pi_df = self._load_old_pis(self.old_pi_filepath)
 

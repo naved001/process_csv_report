@@ -1,21 +1,22 @@
-from dataclasses import dataclass
 import pandas
 
 from process_report.processors import processor
 
 
-@dataclass
 class DiscountProcessor(processor.Processor):
     """
-    Invoice class containing functions useful for applying discounts
+    Processor class containing functions useful for applying discounts
     on dataframes
     """
 
-    @staticmethod
+    IS_DISCOUNT_BY_NERC = True
+
     def apply_flat_discount(
+        self,
         invoice: pandas.DataFrame,
         pi_projects: pandas.DataFrame,
-        discount_amount: int,
+        pi_balance_field: str,
+        discount_amount: float,
         discount_field: str,
         balance_field: str,
         code_field: str = None,
@@ -38,20 +39,21 @@ class DiscountProcessor(processor.Processor):
 
         :param invoice: Dataframe containing all projects
         :param pi_projects: A subset of `invoice`, containing all projects for a PI you want to apply the discount
+        :param pi_balance_field: Name of the field of the PI balance
         :param discount_amount: The discount given to the PI
         :param discount_field: Name of the field to put the discount amount applied to each project
-        :param balance_field: Name of the balance field
+        :param balance_field: Name of the NERC balance field
         :param code_field: Name of the discount code field
         :param discount_code: Code of the discount
         """
 
         def apply_discount_on_project(remaining_discount_amount, project_i, project):
-            remaining_project_balance = project[balance_field]
+            remaining_project_balance = project[pi_balance_field]
             applied_discount = min(remaining_project_balance, remaining_discount_amount)
             invoice.at[project_i, discount_field] = applied_discount
-            invoice.at[project_i, balance_field] = (
-                project[balance_field] - applied_discount
-            )
+            invoice.at[project_i, pi_balance_field] -= applied_discount
+            if self.IS_DISCOUNT_BY_NERC:
+                invoice.at[project_i, balance_field] -= applied_discount
             remaining_discount_amount -= applied_discount
             return remaining_discount_amount
 
