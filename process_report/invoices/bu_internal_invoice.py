@@ -5,21 +5,23 @@ from process_report.invoices import invoice
 
 @dataclass
 class BUInternalInvoice(invoice.Invoice):
+    export_columns_list = [
+        invoice.INVOICE_DATE_FIELD,
+        invoice.PI_FIELD,
+        "Project",
+        invoice.COST_FIELD,
+        invoice.CREDIT_FIELD,
+        invoice.BU_BALANCE_FIELD,
+        invoice.PI_BALANCE_FIELD,
+    ]
+    exported_columns_map = {
+        invoice.BU_BALANCE_FIELD: "Subsidy",
+        invoice.PI_BALANCE_FIELD: "Balance",
+    }
+
     subsidy_amount: int
 
     def _prepare_export(self):
-        self.data = self.data[
-            [
-                invoice.INVOICE_DATE_FIELD,
-                invoice.PI_FIELD,
-                "Project",
-                invoice.COST_FIELD,
-                invoice.CREDIT_FIELD,
-                invoice.BU_BALANCE_FIELD,
-                invoice.BALANCE_FIELD,
-            ]
-        ]
-
         self.data = self._sum_project_allocations(self.data)
 
     def _sum_project_allocations(self, dataframe):
@@ -28,7 +30,12 @@ class BUInternalInvoice(invoice.Invoice):
         each unique project, summing up its allocations' costs"""
         project_list = dataframe["Project"].unique()
         data_no_dup = dataframe.drop_duplicates("Project", inplace=False)
-        sum_fields = [invoice.COST_FIELD, invoice.CREDIT_FIELD, invoice.BALANCE_FIELD]
+        sum_fields = [
+            invoice.COST_FIELD,
+            invoice.CREDIT_FIELD,
+            invoice.BU_BALANCE_FIELD,
+            invoice.PI_BALANCE_FIELD,
+        ]
         for project in project_list:
             project_mask = dataframe["Project"] == project
             no_dup_project_mask = data_no_dup["Project"] == project

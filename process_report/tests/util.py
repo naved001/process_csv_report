@@ -9,6 +9,7 @@ from process_report.processors import (
     new_pi_credit_processor,
     bu_subsidy_processor,
 )
+from process_report.invoices import invoice
 
 
 def new_add_institution_processor(
@@ -71,3 +72,11 @@ def new_bu_subsidy_processor(
     return bu_subsidy_processor.BUSubsidyProcessor(
         name, invoice_month, data, subsidy_amount
     )
+
+
+def new_base_invoice(
+    name="",
+    invoice_month="0000-00",
+    data=pandas.DataFrame(),
+):
+    return invoice.Invoice(name, invoice_month, data)

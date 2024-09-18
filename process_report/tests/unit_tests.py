@@ -907,3 +907,15 @@ class TestUploadToS3(TestCase):
         process_report.upload_to_s3(filenames, invoice_month)
         for i, call_args in enumerate(mock_bucket.upload_file.call_args_list):
             self.assertTrue(answers[i] in call_args)
+
+
+class TestBaseInvoice(TestCase):
+    def test_filter_exported_columns(self):
+        test_invoice = pandas.DataFrame(columns=["C1", "C2", "C3", "C4", "C5"])
+        answer_invoice = pandas.DataFrame(columns=["C1", "C3R", "C5R"])
+        inv = test_utils.new_base_invoice(data=test_invoice)
+        inv.export_columns_list = ["C1", "C3", "C5"]
+        inv.exported_columns_map = {"C3": "C3R", "C5": "C5R"}
+        inv._filter_columns()
+
+        self.assertTrue(inv.data.equals(answer_invoice))

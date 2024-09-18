@@ -232,7 +232,7 @@ def main():
     nonbillable_inv = nonbillable_invoice.NonbillableInvoice(
         name=args.nonbillable_file,
         invoice_month=invoice_month,
-        data=add_institute_proc.data,
+        data=lenovo_proc.data,
         nonbillable_pis=pi,
         nonbillable_projects=projects,
     )
@@ -240,7 +240,7 @@ def main():
     ### Perform main processing
 
     remove_nonbillables_proc = remove_nonbillables_processor.RemoveNonbillables(
-        "", invoice_month, add_institute_proc.data, pi, projects
+        "", invoice_month, lenovo_proc.data, pi, projects
     )
     remove_nonbillables_proc.process()
 
@@ -272,19 +272,15 @@ def main():
     billable_inv = billable_invoice.BillableInvoice(
         name=args.output_file,
         invoice_month=invoice_month,
-        data=new_pi_credit_proc.data,
+        data=bu_subsidy_proc.data,
         old_pi_filepath=old_pi_file,
         updated_old_pi_df=new_pi_credit_proc.updated_old_pi_df,
-    )
-
-    process_and_export_invoices(
-        [lenovo_inv, nonbillable_inv, billable_inv], args.upload_to_s3
     )
 
     nerc_total_inv = NERC_total_invoice.NERCTotalInvoice(
         name=args.NERC_total_invoice_file,
         invoice_month=invoice_month,
-        data=new_pi_credit_proc.data.copy(),
+        data=bu_subsidy_proc.data.copy(),
     )
 
     bu_internal_inv = bu_internal_invoice.BUInternalInvoice(
@@ -294,7 +290,10 @@ def main():
         subsidy_amount=args.BU_subsidy_amount,
     )
 
-    process_and_export_invoices([nerc_total_inv, bu_internal_inv], args.upload_to_s3)
+    process_and_export_invoices(
+        [lenovo_inv, nonbillable_inv, billable_inv, nerc_total_inv, bu_internal_inv],
+        args.upload_to_s3,
+    )
 
     export_pi_billables(billable_inv.data.copy(), args.output_folder, invoice_month)
 
