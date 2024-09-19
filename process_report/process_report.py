@@ -1,5 +1,4 @@
 import argparse
-import os
 import sys
 import datetime
 
@@ -14,6 +13,7 @@ from process_report.invoices import (
     billable_invoice,
     NERC_total_invoice,
     bu_internal_invoice,
+    pi_specific_invoice,
 )
 
 
@@ -262,17 +262,13 @@ def main():
         subsidy_amount=args.BU_subsidy_amount,
     )
 
-    process_and_export_invoices([nerc_total_inv, bu_internal_inv], args.upload_to_s3)
+    pi_inv = pi_specific_invoice.PIInvoice(
+        name=args.output_folder, invoice_month=invoice_month, data=billable_inv.data
+    )
 
-    export_pi_billables(billable_inv.data.copy(), args.output_folder, invoice_month)
-
-    if args.upload_to_s3:
-        invoice_list = list()
-
-        for pi_invoice in os.listdir(args.output_folder):
-            invoice_list.append(os.path.join(args.output_folder, pi_invoice))
-
-        upload_to_s3(invoice_list, invoice_month)
+    process_and_export_invoices(
+        [nerc_total_inv, bu_internal_inv, pi_inv], args.upload_to_s3
+    )
 
 
 def fetch_s3_invoices(invoice_month):
@@ -388,34 +384,6 @@ def add_institution(dataframe: pandas.DataFrame):
 
 def export_billables(dataframe, output_file):
     dataframe.to_csv(output_file, index=False)
-
-
-def export_pi_billables(dataframe: pandas.DataFrame, output_folder, invoice_month):
-    if not os.path.exists(output_folder):
-        os.mkdir(output_folder)
-
-    pi_list = dataframe[PI_FIELD].unique()
-
-    for pi in pi_list:
-        if pandas.isna(pi):
-            continue
-        pi_projects = dataframe[dataframe[PI_FIELD] == pi]
-        pi_instituition = pi_projects[INSTITUTION_FIELD].iat[0]
-        pi_projects.to_csv(
-            output_folder + f"/{pi_instituition}_{pi}_{invoice_month}.csv", index=False
-        )
-
-
-def upload_to_s3(invoice_list: list, invoice_month):
-    invoice_bucket = get_invoice_bucket()
-    for invoice_filename in invoice_list:
-        striped_filename = os.path.splitext(invoice_filename)[0]
-        invoice_s3_path = (
-            f"Invoices/{invoice_month}/{striped_filename} {invoice_month}.csv"
-        )
-        invoice_s3_path_archive = f"Invoices/{invoice_month}/Archive/{striped_filename} {invoice_month} {get_iso8601_time()}.csv"
-        invoice_bucket.upload_file(invoice_filename, invoice_s3_path)
-        invoice_bucket.upload_file(invoice_filename, invoice_s3_path_archive)
 
 
 if __name__ == "__main__":
