@@ -1,9 +1,11 @@
 -   display_name: Northeastern University
     domains:
     - northeastern.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: Boston University
     domains:
     - bu.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: Bentley
     domains:
     - bentley.edu
@@ -35,24 +37,29 @@
     domains:
     - harvard.edu
     - chemistry.harvard.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: Worcester Polytechnic Institute
     domains:
     - wpi.edu
 -   display_name: Massachusetts Institute of Technology
     domains:
     - mit.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: University of Massachusetts Amherst
     domains:
     - umass.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: University of Massachusetts Lowell
     domains:
     - uml.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: Code For Boston
     domains:
     - codeforboston.org
 -   display_name: Yale University
     domains:
     - yale.edu
+    mghpcc_partnership_start_date: "2013-06"
 -   display_name: Dartmouth College
     domains:
     - dartmouth.edu
