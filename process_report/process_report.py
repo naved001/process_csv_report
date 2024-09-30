@@ -2,11 +2,11 @@ import argparse
 import sys
 import datetime
 
-import json
 import pandas
 import pyarrow
+from nerc_rates import load_from_url
 
-from process_report.util import get_invoice_bucket, process_and_export_invoices
+from process_report import util
 from process_report.invoices import (
     lenovo_invoice,
     nonbillable_invoice,
@@ -49,26 +49,6 @@ PI_S3_FILEPATH = "PIs/PI.csv"
 
 
 ALIAS_S3_FILEPATH = "PIs/alias.csv"
-
-
-def get_institution_from_pi(institute_map, pi_uname):
-    institution_domain = pi_uname.split("@")[-1]
-    for i in range(institution_domain.count(".") + 1):
-        if institution_name := institute_map.get(institution_domain, ""):
-            break
-        institution_domain = institution_domain[institution_domain.find(".") + 1 :]
-
-    if institution_name == "":
-        print(f"Warning: PI name {pi_uname} does not match any institution!")
-
-    return institution_name
-
-
-def load_institute_map() -> dict:
-    with open("process_report/institute_map.json", "r") as f:
-        institute_map = json.load(f)
-
-    return institute_map
 
 
 def load_alias(alias_file):
@@ -236,6 +216,7 @@ def main():
     if args.upload_to_s3:
         backup_to_s3_old_pi_file(old_pi_file)
 
+    rates_info = load_from_url()
     billable_inv = billable_invoice.BillableInvoice(
         name=args.output_file,
         invoice_month=invoice_month,
@@ -243,9 +224,12 @@ def main():
         nonbillable_pis=pi,
         nonbillable_projects=projects,
         old_pi_filepath=old_pi_file,
+        limit_new_pi_credit_to_partners=rates_info.get_value_at(
+            "Limit New PI Credit to MGHPCC Partners", invoice_month
+        ),
     )
 
-    process_and_export_invoices(
+    util.process_and_export_invoices(
         [lenovo_inv, nonbillable_inv, billable_inv], args.upload_to_s3
     )
 
@@ -266,7 +250,7 @@ def main():
         name=args.output_folder, invoice_month=invoice_month, data=billable_inv.data
     )
 
-    process_and_export_invoices(
+    util.process_and_export_invoices(
         [nerc_total_inv, bu_internal_inv, pi_inv], args.upload_to_s3
     )
 
@@ -274,7 +258,7 @@ def main():
 def fetch_s3_invoices(invoice_month):
     """Fetches usage invoices from S3 given invoice month"""
     s3_invoice_list = list()
-    invoice_bucket = get_invoice_bucket()
+    invoice_bucket = util.get_invoice_bucket()
     for obj in invoice_bucket.objects.filter(
         Prefix=f"Invoices/{invoice_month}/Service Invoices/"
     ):
@@ -339,20 +323,20 @@ def validate_pi_aliases(dataframe: pandas.DataFrame, alias_dict: dict):
 
 def fetch_s3_alias_file():
     local_name = "alias.csv"
-    invoice_bucket = get_invoice_bucket()
+    invoice_bucket = util.get_invoice_bucket()
     invoice_bucket.download_file(ALIAS_S3_FILEPATH, local_name)
     return local_name
 
 
 def fetch_s3_old_pi_file():
     local_name = "PI.csv"
-    invoice_bucket = get_invoice_bucket()
+    invoice_bucket = util.get_invoice_bucket()
     invoice_bucket.download_file(PI_S3_FILEPATH, local_name)
     return local_name
 
 
 def backup_to_s3_old_pi_file(old_pi_file):
-    invoice_bucket = get_invoice_bucket()
+    invoice_bucket = util.get_invoice_bucket()
     invoice_bucket.upload_file(old_pi_file, f"PIs/Archive/PI {get_iso8601_time()}.csv")
 
 
@@ -368,14 +352,15 @@ def add_institution(dataframe: pandas.DataFrame):
 
     The list of mappings are defined in `institute_map.json`.
     """
-    institute_map = load_institute_map()
+    institute_list = util.load_institute_list()
+    institute_map = util.get_institute_mapping(institute_list)
     dataframe = dataframe.astype({INSTITUTION_FIELD: "str"})
     for i, row in dataframe.iterrows():
         pi_name = row[PI_FIELD]
         if pandas.isna(pi_name):
             print(f"Project {row[PROJECT_FIELD]} has no PI")
         else:
-            dataframe.at[i, INSTITUTION_FIELD] = get_institution_from_pi(
+            dataframe.at[i, INSTITUTION_FIELD] = util.get_institution_from_pi(
                 institute_map, pi_name
             )
 
