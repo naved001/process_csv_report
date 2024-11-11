@@ -7,6 +7,8 @@ from process_report.processors import discount_processor
 
 @dataclass
 class BUSubsidyProcessor(discount_processor.DiscountProcessor):
+    IS_DISCOUNT_BY_NERC = False
+
     subsidy_amount: int
 
     def _prepare(self):
@@ -17,43 +19,35 @@ class BUSubsidyProcessor(discount_processor.DiscountProcessor):
             else:
                 return project_alloc[: project_alloc.rfind("-")]
 
-        self.data = self.data[
-            self.data[invoice.IS_BILLABLE_FIELD] & ~self.data[invoice.MISSING_PI_FIELD]
-        ]
-        self.data = self.data[
-            self.data[invoice.INSTITUTION_FIELD] == "Boston University"
-        ].copy()
-        self.data["Project"] = self.data.apply(get_project, axis=1)
+        self.data[invoice.PROJECT_NAME_FIELD] = self.data.apply(get_project, axis=1)
         self.data[invoice.SUBSIDY_FIELD] = Decimal(0)
 
     def _process(self):
-        data_summed_projects = self._sum_project_allocations(self.data)
-        self.data = self._apply_subsidy(data_summed_projects, self.subsidy_amount)
+        self.data = self._apply_subsidy(self.data, self.subsidy_amount)
 
-    def _sum_project_allocations(self, dataframe):
-        """A project may have multiple allocations, and therefore multiple rows
-        in the raw invoices. For BU-Internal invoice, we only want 1 row for
-        each unique project, summing up its allocations' costs"""
-        project_list = dataframe["Project"].unique()
-        data_no_dup = dataframe.drop_duplicates("Project", inplace=False)
-        sum_fields = [invoice.COST_FIELD, invoice.CREDIT_FIELD, invoice.BALANCE_FIELD]
-        for project in project_list:
-            project_mask = dataframe["Project"] == project
-            no_dup_project_mask = data_no_dup["Project"] == project
+    @staticmethod
+    def _get_subsidy_eligible_projects(data):
+        filtered_data = data[
+            data[invoice.IS_BILLABLE_FIELD] & ~data[invoice.MISSING_PI_FIELD]
+        ]
+        filtered_data = filtered_data[
+            filtered_data[invoice.INSTITUTION_FIELD] == "Boston University"
+        ].copy()
 
-            sum_fields_sums = dataframe[project_mask][sum_fields].sum().values
-            data_no_dup.loc[no_dup_project_mask, sum_fields] = sum_fields_sums
-
-        return data_no_dup
+        return filtered_data
 
     def _apply_subsidy(self, dataframe, subsidy_amount):
-        pi_list = dataframe[invoice.PI_FIELD].unique()
+        subsidy_eligible_projects = self._get_subsidy_eligible_projects(dataframe)
+        pi_list = subsidy_eligible_projects[invoice.PI_FIELD].unique()
 
         for pi in pi_list:
-            pi_projects = dataframe[dataframe[invoice.PI_FIELD] == pi]
+            pi_projects = subsidy_eligible_projects[
+                subsidy_eligible_projects[invoice.PI_FIELD] == pi
+            ]
             self.apply_flat_discount(
                 dataframe,
                 pi_projects,
+                invoice.PI_BALANCE_FIELD,
                 subsidy_amount,
                 invoice.SUBSIDY_FIELD,
                 invoice.BALANCE_FIELD,
