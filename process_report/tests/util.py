@@ -18,18 +18,28 @@ from process_report.processors import (
 def new_base_invoice(
     name="",
     invoice_month="0000-00",
-    data=pandas.DataFrame(),
+    data=None,
 ):
+    if data is None:
+        data = pandas.DataFrame()
     return invoice.Invoice(name, invoice_month, data)
 
 
 def new_billable_invoice(
     name="",
     invoice_month="0000-00",
-    data=pandas.DataFrame(),
+    data=None,
+    nonbillable_pis=None,
+    nonbillable_projects=None,
     old_pi_filepath="",
     limit_new_pi_credit_to_partners=False,
 ):
+    if data is None:
+        data = pandas.DataFrame()
+    if nonbillable_pis is None:
+        nonbillable_pis = []
+    if nonbillable_projects is None:
+        nonbillable_projects = []
     return billable_invoice.BillableInvoice(
         name,
         invoice_month,
@@ -40,8 +50,10 @@ def new_billable_invoice(
 
 
 def new_bu_internal_invoice(
-    name="", invoice_month="0000-00", data=pandas.DataFrame(), subsidy_amount=0
+    name="", invoice_month="0000-00", data=None, subsidy_amount=0
 ):
+    if data is None:
+        data = pandas.DataFrame()
     return bu_internal_invoice.BUInternalInvoice(
         name, invoice_month, data, subsidy_amount
     )
@@ -50,8 +62,10 @@ def new_bu_internal_invoice(
 def new_pi_specific_invoice(
     name="",
     invoice_month="0000-00",
-    data=pandas.DataFrame(),
+    data=None,
 ):
+    if data is None:
+        data = pandas.DataFrame()
     return pi_specific_invoice.PIInvoice(
         name,
         invoice_month,
@@ -62,20 +76,28 @@ def new_pi_specific_invoice(
 def new_add_institution_processor(
     name="",
     invoice_month="0000-00",
-    data=pandas.DataFrame(),
+    data=None,
 ):
+    if data is None:
+        data = pandas.DataFrame()
     return add_institution_processor.AddInstitutionProcessor(name, invoice_month, data)
 
 
 def new_validate_pi_alias_processor(
-    name="", invoice_month="0000-00", data=pandas.DataFrame(), alias_map={}
+    name="", invoice_month="0000-00", data=None, alias_map=None
 ):
+    if data is None:
+        data = pandas.DataFrame()
+    if alias_map is None:
+        alias_map = {}
     return validate_pi_alias_processor.ValidatePIAliasProcessor(
         name, invoice_month, data, alias_map
     )
 
 
-def new_lenovo_processor(name="", invoice_month="0000-00", data=pandas.DataFrame()):
+def new_lenovo_processor(name="", invoice_month="0000-00", data=None):
+    if data is None:
+        data = pandas.DataFrame()
     return lenovo_processor.LenovoProcessor(name, invoice_month, data)
 
 
