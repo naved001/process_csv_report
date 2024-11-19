@@ -11,6 +11,7 @@ from process_report.processors import (
     add_institution_processor,
     validate_pi_alias_processor,
     lenovo_processor,
+    validate_billable_pi_processor,
 )
 
 
@@ -26,8 +27,6 @@ def new_billable_invoice(
     name="",
     invoice_month="0000-00",
     data=pandas.DataFrame(),
-    nonbillable_pis=[],
-    nonbillable_projects=[],
     old_pi_filepath="",
     limit_new_pi_credit_to_partners=False,
 ):
@@ -35,8 +34,6 @@ def new_billable_invoice(
         name,
         invoice_month,
         data,
-        nonbillable_pis,
-        nonbillable_projects,
         old_pi_filepath,
         limit_new_pi_credit_to_partners,
     )
@@ -80,3 +77,26 @@ def new_validate_pi_alias_processor(
 
 def new_lenovo_processor(name="", invoice_month="0000-00", data=pandas.DataFrame()):
     return lenovo_processor.LenovoProcessor(name, invoice_month, data)
+
+
+def new_validate_billable_pi_processor(
+    name="",
+    invoice_month="0000-00",
+    data=None,
+    nonbillable_pis=None,
+    nonbillable_projects=None,
+):
+    if data is None:
+        data = pandas.DataFrame()
+    if nonbillable_pis is None:
+        nonbillable_pis = []
+    if nonbillable_projects is None:
+        nonbillable_projects = []
+
+    return validate_billable_pi_processor.ValidateBillablePIsProcessor(
+        name,
+        invoice_month,
+        data,
+        nonbillable_pis,
+        nonbillable_projects,
+    )
