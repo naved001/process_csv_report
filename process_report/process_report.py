@@ -14,6 +14,7 @@ from process_report.invoices import (
     NERC_total_invoice,
     bu_internal_invoice,
     pi_specific_invoice,
+    MOCA_prepaid_invoice,
 )
 from process_report.processors import (
     validate_pi_alias_processor,
@@ -344,6 +345,10 @@ def main():
         name=args.output_folder, invoice_month=invoice_month, data=processed_data.copy()
     )
 
+    moca_prepaid_inv = MOCA_prepaid_invoice.MOCAPrepaidInvoice(
+        name="", invoice_month=invoice_month, data=processed_data.copy()
+    )
+
     util.process_and_export_invoices(
         [
             lenovo_inv,
@@ -352,6 +357,7 @@ def main():
             nerc_total_inv,
             bu_internal_inv,
             pi_inv,
+            moca_prepaid_inv,
         ],
         args.upload_to_s3,
     )
