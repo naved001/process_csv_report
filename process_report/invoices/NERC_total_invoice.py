@@ -60,4 +60,5 @@ class NERCTotalInvoice(invoice.Invoice):
         ]
         self.data = self.data[
             self.data[invoice.INSTITUTION_FIELD].isin(self.INCLUDED_INSTITUTIONS)
+            | (self.data[invoice.GROUP_MANAGED_FIELD] == True)  # noqa E712
         ].copy()
