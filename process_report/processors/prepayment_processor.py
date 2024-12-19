@@ -22,6 +22,7 @@ class PrepaymentProcessor(discount_processor.DiscountProcessor):
     prepay_contacts: pandas.DataFrame
     prepay_debits_filepath: str
     upload_to_s3: bool
+    export_NERC_credits: bool = True  # For testing purposes
 
     @staticmethod
     def _load_prepay_debits(prepay_debits_filepath):
@@ -46,6 +47,9 @@ class PrepaymentProcessor(discount_processor.DiscountProcessor):
         self._add_prepay_info()
         self._apply_prepayments()
 
+        if self.export_NERC_credits:
+            credits_snapshot = self._get_prepay_credits_snapshot()
+            self._export_prepay_credits_snapshot(credits_snapshot)
         self._export_prepay_debits()
         if self.upload_to_s3:
             self._export_s3_prepay_debits()
@@ -193,6 +197,26 @@ class PrepaymentProcessor(discount_processor.DiscountProcessor):
                     self.prepay_debits.loc[
                         debit_entry_mask, invoice.PREPAY_DEBIT_FIELD
                     ] = prepay_amount_used
+
+    def _get_prepay_credits_snapshot(self):
+        managed_groups_list = list()
+        for group_name, group_dict in self.group_info_dict.items():
+            if group_dict[invoice.PREPAY_MANAGED_FIELD]:
+                managed_groups_list.append(group_name)
+
+        credits_mask = (
+            self.prepay_credits[invoice.PREPAY_MONTH_FIELD] == self.invoice_month
+        ) & (
+            self.prepay_credits[invoice.PREPAY_GROUP_NAME_FIELD].isin(
+                managed_groups_list
+            )
+        )
+        return self.prepay_credits[credits_mask]
+
+    def _export_prepay_credits_snapshot(self, credits_snapshot):
+        credits_snapshot.to_csv(
+            f"NERC_Prepaid_Group-Credits-{self.invoice_month}.csv", index=False
+        )
 
     def _export_prepay_debits(self):
         self.prepay_debits.to_csv(self.prepay_debits_filepath, index=False)
