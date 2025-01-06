@@ -53,7 +53,6 @@ BALANCE_FIELD = "Balance"
 
 PI_S3_FILEPATH = "PIs/PI.csv"
 
-
 ALIAS_S3_FILEPATH = "PIs/alias.csv"
 
 
@@ -236,8 +235,11 @@ def main():
         invoice_month,
         data=validate_billable_pi_proc.data,
         old_pi_filepath=old_pi_file,
-        limit_new_pi_credit_to_partners=rates_info.get_value_at(
-            "Limit New PI Credit to MGHPCC Partners", invoice_month
+        limit_new_pi_credit_to_partners=(
+            rates_info.get_value_at(
+                "Limit New PI Credit to MGHPCC Partners", invoice_month
+            )
+            == "True",
         ),
     )
     new_pi_credit_proc.process()
