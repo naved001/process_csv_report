@@ -75,3 +75,9 @@
 -   display_name: Research Space
     domains:
     - researchspace.com
+-   display_name: University of Toronto
+    domains:
+    - utoronto.ca
+-   display_name: New York University
+    domains:
+    - nyu.edu
