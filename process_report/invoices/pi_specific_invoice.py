@@ -43,13 +43,13 @@ class PIInvoice(invoice.Invoice):
         def _export_pi_invoice(pi):
             if pandas.isna(pi):
                 return
-            pi_projects = export_data[export_data[invoice.PI_FIELD] == pi]
+            pi_projects = self.export_data[self.export_data[invoice.PI_FIELD] == pi]
             pi_instituition = pi_projects[invoice.INSTITUTION_FIELD].iat[0]
             pi_projects.to_csv(
                 f"{self.name}/{pi_instituition}_{pi} {self.invoice_month}.csv"
             )
 
-        export_data = self._filter_columns()
+        self._filter_columns()
         if not os.path.exists(
             self.name
         ):  # self.name is name of folder storing invoices
