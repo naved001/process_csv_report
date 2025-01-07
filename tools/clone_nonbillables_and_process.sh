@@ -28,15 +28,16 @@ if [ ! -d ./non-billable-projects ]; then
 fi
 
 INVOICE_MONTH=$(date --date="$(date +%Y-%m-01) -1 month" +%Y-%m)
-python process_report/process_report.py \
+python -m process_report.process_report \
     --fetch-from-s3 \
     --upload-to-s3 \
     --invoice-month $INVOICE_MONTH \
     --pi-file ./non-billable-projects/pi.txt \
     --projects-file ./non-billable-projects/projects.txt \
     --timed-projects-file ./non-billable-projects/timed_projects.txt \
-    --nonbillable-file "NERC (Nonbillable).csv" \
-    --output-file "NERC.csv" \
+    --nonbillable-file "NERC (Nonbillable)" \
+    --output-file "NERC" \
     --output-folder "PI Invoices" \
-    --BU-invoice-file "NERC BU.csv" \
-    --Lenovo-file "Lenovo.csv"
+    --BU-invoice-file "NERC BU" \
+    --Lenovo-file "Lenovo" \
+    --BU-subsidy-amount 100
