@@ -1036,9 +1036,11 @@ class TestBaseInvoice(TestCase):
     def test_filter_exported_columns(self):
         test_invoice = pandas.DataFrame(columns=["C1", "C2", "C3", "C4", "C5"])
         answer_invoice = pandas.DataFrame(columns=["C1", "C3R", "C5R"])
-        inv = test_utils.new_base_invoice(data=test_invoice)
+        inv = test_utils.new_base_invoice()
+        inv.export_data = test_invoice
         inv.export_columns_list = ["C1", "C3", "C5"]
         inv.exported_columns_map = {"C3": "C3R", "C5": "C5R"}
-        result_invoice = inv._filter_columns()
 
+        inv._filter_columns()
+        result_invoice = inv.export_data
         self.assertTrue(result_invoice.equals(answer_invoice))
