@@ -1,13 +1,9 @@
 from dataclasses import dataclass
-import logging
 
 import pandas
 import pyarrow
 
 from process_report.invoices import invoice
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 @dataclass
