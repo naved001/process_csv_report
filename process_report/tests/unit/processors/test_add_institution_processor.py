@@ -1,9 +1,9 @@
 from unittest import TestCase
 
-from process_report.tests import util as test_utils
+from process_report import util
 
 
-class TestAddInstituteProcessor(TestCase):
+class TestAddInstitute(TestCase):
     def test_get_pi_institution(self):
         institute_map = {
             "harvard.edu": "Harvard University",
@@ -32,10 +32,7 @@ class TestAddInstituteProcessor(TestCase):
             "g@bidmc.harvard.edu": "Beth Israel Deaconess Medical Center",
         }
 
-        add_institute_proc = test_utils.new_add_institution_processor()
-
         for pi_email, answer in answers.items():
             self.assertEqual(
-                add_institute_proc._get_institution_from_pi(institute_map, pi_email),
-                answer,
+                util.get_institution_from_pi(institute_map, pi_email), answer
             )
