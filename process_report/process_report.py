@@ -15,6 +15,7 @@ from process_report.invoices import (
     NERC_total_invoice,
     bu_internal_invoice,
     pi_specific_invoice,
+    MOCA_group_specific_invoice,
 )
 from process_report.processors import (
     validate_pi_alias_processor,
@@ -166,6 +167,12 @@ def main():
         required=False,
         default="pi_invoices",
         help="Name of output folder containing pi-specific invoice csvs",
+    )
+    parser.add_argument(
+        "--prepay-groups-output-folder",
+        required=False,
+        default="group_invoices",
+        help="Name of output folder containing prepay-group-specific invoice PDFs",
     )
     parser.add_argument(
         "--BU-invoice-file",
@@ -352,6 +359,13 @@ def main():
         name=args.output_folder, invoice_month=invoice_month, data=processed_data
     )
 
+    moca_group_inv = MOCA_group_specific_invoice.MOCAGroupInvoice(
+        name=args.prepay_groups_output_folder,
+        invoice_month=invoice_month,
+        data=processed_data,
+        prepay_credits=prepay_credits,
+    )
+
     util.process_and_export_invoices(
         [
             lenovo_inv,
@@ -360,6 +374,7 @@ def main():
             nerc_total_inv,
             bu_internal_inv,
             pi_inv,
+            moca_group_inv,
         ],
         args.upload_to_s3,
     )
