@@ -31,9 +31,15 @@ class ValidateBillablePIsProcessor(processor.Processor):
         nonbillable_pis: list[str],
         nonbillable_projects: list[str],
     ):
+        def _str_to_lowercase(data):
+            return data.lower()
+
+        nonbillable_projects_lowercase = [
+            project.lower() for project in nonbillable_projects
+        ]
         return ~data[invoice.PI_FIELD].isin(nonbillable_pis) & ~data[
             invoice.PROJECT_FIELD
-        ].isin(nonbillable_projects)
+        ].apply(_str_to_lowercase).isin(nonbillable_projects_lowercase)
 
     def _process(self):
         self.data[invoice.IS_BILLABLE_FIELD] = self._get_billables(

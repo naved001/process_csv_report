@@ -11,7 +11,9 @@ class TestValidateBillablePIProcessor(TestCase):
         pis = [uuid.uuid4().hex for x in range(10)]
         projects = [uuid.uuid4().hex for x in range(10)]
         nonbillable_pis = pis[:3]
-        nonbillable_projects = projects[7:]
+        nonbillable_projects = [
+            project.upper() for project in projects[7:]
+        ]  # Test for case-insentivity
         billable_pis = pis[3:7]
         data = pandas.DataFrame({"Manager (PI)": pis, "Project - Allocation": projects})
 
