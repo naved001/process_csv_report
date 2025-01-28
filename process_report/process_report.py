@@ -218,18 +218,18 @@ def main():
     if args.old_pi_file:
         old_pi_file = args.old_pi_file
     else:
-        old_pi_file = fetch_s3_old_pi_file()
+        old_pi_file = util.fetch_s3(PI_S3_FILEPATH)
 
     if args.alias_file:
         alias_file = args.alias_file
     else:
-        alias_file = fetch_s3_alias_file()
+        alias_file = util.fetch_s3(ALIAS_S3_FILEPATH)
     alias_dict = load_alias(alias_file)
 
     if args.prepay_debits:
         prepay_debits_filepath = args.prepay_debits
     else:
-        prepay_debits_filepath = fetch_s3_prepay_debits()
+        prepay_debits_filepath = util.fetch_s3(PREPAY_DEBITS_S3_FILEPATH)
 
     prepay_credits, prepay_projects, prepay_info = load_prepay_csv(
         args.prepay_credits, args.prepay_projects, args.prepay_contacts
@@ -422,27 +422,6 @@ def timed_projects(timed_projects_file, invoice_date):
         invoice_date <= dataframe["End Date"]
     )
     return dataframe[mask]["Project"].to_list()
-
-
-def fetch_s3_alias_file():
-    local_name = "alias.csv"
-    invoice_bucket = util.get_invoice_bucket()
-    invoice_bucket.download_file(ALIAS_S3_FILEPATH, local_name)
-    return local_name
-
-
-def fetch_s3_old_pi_file():
-    local_name = "PI.csv"
-    invoice_bucket = util.get_invoice_bucket()
-    invoice_bucket.download_file(PI_S3_FILEPATH, local_name)
-    return local_name
-
-
-def fetch_s3_prepay_debits():
-    local_name = "prepay_debits.csv"
-    invoice_bucket = util.get_invoice_bucket()
-    invoice_bucket.download_file(PREPAY_DEBITS_S3_FILEPATH, local_name)
-    return local_name
 
 
 def backup_to_s3_old_pi_file(old_pi_file):
