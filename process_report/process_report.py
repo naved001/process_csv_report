@@ -200,6 +200,12 @@ def main():
         help="Name of csv file listing all prepay group debits. If not provided, defaults to fetching from S3",
     )
     parser.add_argument(
+        "--new-pi-credit-amount",
+        required=False,
+        type=int,
+        help="Amount of credit given to new PIs. If not provided, defaults to fetching from nerc-rates",
+    )
+    parser.add_argument(
         "--BU-subsidy-amount",
         required=False,
         type=int,
@@ -215,6 +221,9 @@ def main():
     alias_dict = load_alias(alias_file)
     prepay_debits_filepath = args.prepay_debits or util.fetch_s3(
         PREPAY_DEBITS_S3_FILEPATH
+    )
+    new_pi_credit_amount = args.new_pi_credit_amount or int(
+        util.fetch_nerc_rates("New PI Credit", invoice_month)
     )
     bu_subsidy_amount = args.BU_subsidy_amount or int(
         util.fetch_nerc_rates("BU Subsidy", invoice_month)
@@ -269,6 +278,7 @@ def main():
         invoice_month,
         data=validate_billable_pi_proc.data,
         old_pi_filepath=old_pi_file,
+        initial_credit_amount=new_pi_credit_amount,
         limit_new_pi_credit_to_partners=(
             util.fetch_nerc_rates(
                 "Limit New PI Credit to MGHPCC Partners", invoice_month
