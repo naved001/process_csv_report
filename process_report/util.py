@@ -83,3 +83,10 @@ def process_and_export_invoices(invoice_list, upload_to_s3):
         if upload_to_s3:
             bucket = get_invoice_bucket()
             invoice.export_s3(bucket)
+
+
+def fetch_s3(s3_filepath):
+    local_name = os.path.basename(s3_filepath)
+    invoice_bucket = get_invoice_bucket()
+    invoice_bucket.download_file(s3_filepath, local_name)
+    return local_name
