@@ -209,32 +209,16 @@ def main():
 
     invoice_month = args.invoice_month
 
-    if args.fetch_from_s3:
-        csv_files = fetch_s3_invoices(invoice_month)
-    else:
-        csv_files = args.csv_files
-
-    if args.old_pi_file:
-        old_pi_file = args.old_pi_file
-    else:
-        old_pi_file = util.fetch_s3(PI_S3_FILEPATH)
-
-    if args.alias_file:
-        alias_file = args.alias_file
-    else:
-        alias_file = util.fetch_s3(ALIAS_S3_FILEPATH)
+    csv_files = args.csv_files or fetch_s3_invoices(invoice_month)
+    old_pi_file = args.old_pi_file or util.fetch_s3(PI_S3_FILEPATH)
+    alias_file = args.alias_file or util.fetch_s3(ALIAS_S3_FILEPATH)
     alias_dict = load_alias(alias_file)
-
-    if args.prepay_debits:
-        prepay_debits_filepath = args.prepay_debits
-    else:
-        prepay_debits_filepath = util.fetch_s3(PREPAY_DEBITS_S3_FILEPATH)
-
-    if args.BU_subsidy_amount:
-        bu_subsidy_amount = args.BU_subsidy_amount
-    else:
-        bu_subsidy_amount = int(util.fetch_nerc_rates("BU Subsidy", invoice_month))
-
+    prepay_debits_filepath = args.prepay_debits or util.fetch_s3(
+        PREPAY_DEBITS_S3_FILEPATH
+    )
+    bu_subsidy_amount = args.BU_subsidy_amount or int(
+        util.fetch_nerc_rates("BU Subsidy", invoice_month)
+    )
     prepay_credits, prepay_projects, prepay_info = load_prepay_csv(
         args.prepay_credits, args.prepay_projects, args.prepay_contacts
     )
