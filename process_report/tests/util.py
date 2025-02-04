@@ -4,6 +4,7 @@ from process_report.invoices import (
     invoice,
     billable_invoice,
     pi_specific_invoice,
+    MOCA_group_specific_invoice,
 )
 
 from process_report.processors import (
@@ -62,6 +63,18 @@ def new_pi_specific_invoice(
         name,
         invoice_month,
         data,
+    )
+
+
+def new_MOCA_group_specific_invoice(
+    name="", invoice_month="0000-00", data=None, prepay_credits=None
+):
+    if data is None:
+        data = pandas.DataFrame()
+    if prepay_credits is None:
+        prepay_credits = pandas.DataFrame()
+    return MOCA_group_specific_invoice.MOCAGroupInvoice(
+        name, invoice_month, data, prepay_credits
     )
 
 
